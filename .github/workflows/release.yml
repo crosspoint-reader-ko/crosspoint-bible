@@ -220,12 +220,12 @@ jobs:
         GH_TOKEN: ${{ secrets.CROSSPOINT_ACTION_TOKEN }}
 
     # Bumps crosspoint.kr to this version (sync-version.yml commits to main, which
-    # deploys). The token needs Actions: write on crosspoint-cloud. The cloud's
+    # deploys). CROSSPOINT_CLOUD_ACTION_TOKEN needs Actions: write on crosspoint-cloud. The cloud's
     # hourly cron catches up if this fails, so warn instead of failing the release.
     - name: Trigger crosspoint-cloud firmware sync
       run: |
         if ! gh workflow run sync-version.yml -R crosspoint-reader-ko/crosspoint-cloud --ref main; then
-          echo "::warning title=crosspoint-cloud sync not triggered::CROSSPOINT_ACTION_TOKEN needs Actions: write on crosspoint-reader-ko/crosspoint-cloud. Run sync-version.yml there by hand."
+          echo "::warning title=crosspoint-cloud sync not triggered::CROSSPOINT_CLOUD_ACTION_TOKEN needs Actions: write on crosspoint-reader-ko/crosspoint-cloud. Run sync-version.yml there by hand."
         fi
       env:
-        GH_TOKEN: ${{ secrets.CROSSPOINT_ACTION_TOKEN }}
+        GH_TOKEN: ${{ secrets.CROSSPOINT_CLOUD_ACTION_TOKEN }}
