@@ -1,0 +1,37 @@
+# Menu: text size 20 -> 24 -> 28, then paragraph layout, then wrap size to 14.
+wait:10
+press:back:100
+wait:4
+shot:menu
+# Row 1 = text size.
+press:right:100
+wait:1.5
+press:confirm:100
+wait:1.5
+press:confirm:100
+wait:2
+shot:menu-28
+press:back:100
+wait:10
+shot:genesis1-28
+press:back:100
+wait:4
+# Row 3 = layout.
+press:right:100
+wait:1.5
+press:right:100
+wait:1.5
+press:right:100
+wait:1.5
+press:confirm:100
+wait:1.5
+# Back to row 1, size 28 -> 14.
+press:left:100
+wait:1.5
+press:left:100
+wait:1.5
+press:confirm:100
+wait:2
+press:back:100
+wait:10
+shot:genesis1-14-paragraphs

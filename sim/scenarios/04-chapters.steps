@@ -1,0 +1,8 @@
+# Chapter boundaries: hold right = next chapter, left on a first page = last page of the previous one.
+wait:10
+press:right:1500
+wait:8
+shot:genesis2
+press:left:100
+wait:8
+shot:genesis1-last
