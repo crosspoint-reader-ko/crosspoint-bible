@@ -1,5 +1,7 @@
 #include "ActivityManager.h"
 
+#include "bible/BibleReaderActivity.h"
+
 #include <BoardConfig.h>
 #include <FontCacheManager.h>
 #include <FsHelpers.h>
@@ -325,7 +327,10 @@ void ActivityManager::goHome(HomeMenuItem initialMenuItem, bool cleanInitialRefr
       initialMenuItem = HomeMenuItem::SETTINGS_MENU;
     }
   }
-  replaceActivity(std::make_unique<HomeActivity>(renderer, mappedInput, initialMenuItem, cleanInitialRefresh));
+  // CrossPoint Bible: "home" is the Bible reader at the saved position.
+  (void)initialMenuItem;
+  (void)cleanInitialRefresh;
+  replaceActivity(std::make_unique<BibleReaderActivity>(renderer, mappedInput));
 }
 void ActivityManager::goToCrashReport() { replaceActivity(std::make_unique<CrashActivity>(renderer, mappedInput)); }
 

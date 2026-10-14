@@ -9,6 +9,8 @@
 # 개역개정 EPUB in iCloud Drive Books/_성경). The pack is copyrighted text and
 # stays in sim/out (gitignored).
 # Needs the workspace emulator checkout ../../x4prosim and ../../sim/shotdiff.py.
+# The X3 ink model leaves ghosts of earlier screens (not calibrated, see
+# ../../sim/README.md). Shots use ideal ink unless REAL_INK=1.
 set -u
 repo=$(cd "$(dirname "$0")/.." && pwd)
 ws=$(cd "$repo/.." && pwd)
@@ -49,6 +51,8 @@ flash=$out/flash-$env.bin
 "$simsrc/x4prosim/mkflash.sh" "$bdir" "$flash" > "$out/mkflash.log" 2>&1 \
   || { echo "FAIL mkflash, see $out/mkflash.log"; exit 1; }
 echo "firmware $env ($(git -C "$repo" describe --always --dirty)), x4prosim $(git -C "$simsrc" rev-parse --short HEAD)"
+
+[ "${REAL_INK:-0}" = 1 ] || export QEMU_EXTRA="${QEMU_EXTRA:-} -global uc8279.swing-frames=1 -global uc8279.dead-frames=0"
 
 fail=0
 for sc in $scenarios; do

@@ -35,6 +35,8 @@
 #include "activities/settings/SdFirmwareUpdateActivity.h"
 #include "components/UITheme.h"
 #include "fontIds.h"
+#include "bible/BibleFonts.h"
+#include "bible/BibleSession.h"
 #include "platform/UsbSerialJtagHandoff.h"
 #include "util/ButtonNavigator.h"
 #include "util/ScreenshotUtil.h"
@@ -61,9 +63,17 @@ static bool wakePowerReleasePending = false;
 EpdFont pretendard10RegularFont(&pretendard_10_regular);
 EpdFontFamily uiFontFamily(&pretendard10RegularFont);
 
-// Korean EPUB reader font (KoPub Batang 14pt) - Regular only, synthetic bold applied by renderer
-EpdFont kopub14RegularFont(&kopub_14_regular);
-EpdFontFamily kopub14FontFamily(&kopub14RegularFont);
+// Bible reader fonts (KoPub Batang Medium, five sizes) - Regular only, synthetic bold applied by renderer
+EpdFont bible14RegularFont(&bible_14_regular);
+EpdFontFamily bible14FontFamily(&bible14RegularFont);
+EpdFont bible17RegularFont(&bible_17_regular);
+EpdFontFamily bible17FontFamily(&bible17RegularFont);
+EpdFont bible20RegularFont(&bible_20_regular);
+EpdFontFamily bible20FontFamily(&bible20RegularFont);
+EpdFont bible24RegularFont(&bible_24_regular);
+EpdFontFamily bible24FontFamily(&bible24RegularFont);
+EpdFont bible28RegularFont(&bible_28_regular);
+EpdFontFamily bible28FontFamily(&bible28RegularFont);
 
 // Korean fonts loading from SD card is disabled due to memory constraints
 // Font files should be in /.crosspoint/fonts/ directory
@@ -415,8 +425,12 @@ void setupDisplayAndFonts(bool seamless = false) {
   renderer.insertFont(UI_12_FONT_ID, &uiFontFamily);
   renderer.insertFont(SMALL_FONT_ID, &uiFontFamily);
 
-  // Korean EPUB reader font (KoPub Batang 14pt) - always register as fallback
-  renderer.insertFont(KOPUB_14_FONT_ID, &kopub14FontFamily);
+  // Bible reader fonts. BIBLE_14 keeps the id the KoPub 14pt reader font had (KOPUB_14_FONT_ID).
+  renderer.insertFont(BIBLE_14_FONT_ID, &bible14FontFamily);
+  renderer.insertFont(BIBLE_17_FONT_ID, &bible17FontFamily);
+  renderer.insertFont(BIBLE_20_FONT_ID, &bible20FontFamily);
+  renderer.insertFont(BIBLE_24_FONT_ID, &bible24FontFamily);
+  renderer.insertFont(BIBLE_28_FONT_ID, &bible28FontFamily);
 
   // Try to load custom reader font from SD card
   loadCustomReaderFont(renderer);
@@ -530,6 +544,7 @@ void setup() {
   // UTC-offset setting on first boot after the update).
   timezones::applyToClock();
   RECENT_BOOKS.loadFromFile();
+  BIBLE.loadState();
   I18N.setLanguage(static_cast<Language>(SETTINGS.language));
   KOREADER_STORE.loadFromFile();
   OPDS_STORE.loadFromFile();

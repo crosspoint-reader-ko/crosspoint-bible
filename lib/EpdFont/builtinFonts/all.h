@@ -8,5 +8,10 @@
 // UI fonts (Pretendard 10pt) - Regular only, synthetic bold used when needed
 #include <builtinFonts/pretendard_10_regular.h>
 
-// Korean EPUB reader font (KoPub Batang 14pt) - Regular only, synthetic bold used when needed
-#include <builtinFonts/kopub_14_regular.h>
+// CrossPoint Bible reader fonts (KoPub Batang Medium, KS X 1001 Hangul, compressed).
+// lib/EpdFont/scripts/convert-bible-fonts.sh
+#include <builtinFonts/bible_14_regular.h>
+#include <builtinFonts/bible_17_regular.h>
+#include <builtinFonts/bible_20_regular.h>
+#include <builtinFonts/bible_24_regular.h>
+#include <builtinFonts/bible_28_regular.h>

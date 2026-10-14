@@ -1,0 +1,52 @@
+# Genesis 1 -> next page -> navigator: book grid, John, chapter 3, verse 16.
+# Short presses: the emulator runs slower than real time, so a 150 ms wall-clock
+# press already counts as a hold for the auto-repeat.
+wait:10
+shot:genesis1
+press:right:100
+wait:3
+shot:genesis1-p2
+press:confirm:100
+wait:3
+shot:books
+# Genesis (0): 7 rows down lands on Matthew (39), 3 right on John (42).
+press:down:100
+wait:1.5
+press:down:100
+wait:1.5
+press:down:100
+wait:1.5
+press:down:100
+wait:1.5
+press:down:100
+wait:1.5
+press:down:100
+wait:1.5
+press:down:100
+wait:1.5
+press:right:100
+wait:1.5
+press:right:100
+wait:1.5
+press:right:100
+wait:3
+shot:books-john
+press:confirm:100
+wait:3
+press:right:100
+wait:1.5
+press:right:100
+wait:3
+shot:chapters
+press:confirm:100
+wait:3
+press:down:100
+wait:1.5
+press:down:100
+wait:1.5
+press:down:100
+wait:3
+shot:verses
+press:confirm:100
+wait:12
+shot:john3

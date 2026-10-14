@@ -70,9 +70,15 @@ struct FilePathResult {
   std::string path;
 };
 
+struct BibleRefResult {
+  uint8_t book = 0;      // 0-based
+  uint16_t chapter = 1;  // 1-based
+  uint16_t verse = 1;    // 1-based
+};
+
 using ResultVariant =
     std::variant<std::monostate, WifiResult, KeyboardResult, MenuResult, ChapterResult, PercentResult, IntervalResult,
-                 PageResult, ProgressChangeResult, NetworkModeResult, FootnoteResult, FilePathResult>;
+                 PageResult, ProgressChangeResult, NetworkModeResult, FootnoteResult, FilePathResult, BibleRefResult>;
 
 struct ActivityResult {
   bool isCancelled = false;

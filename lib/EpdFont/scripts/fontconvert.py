@@ -21,6 +21,7 @@ parser.add_argument("fontstack", action="store", nargs='+', help="list of font f
 parser.add_argument("--2bit", dest="is2Bit", action="store_true", help="generate 2-bit greyscale bitmap instead of 1-bit black and white.")
 parser.add_argument("--additional-intervals", dest="additional_intervals", action="append", help="Additional code point intervals to export as min,max. This argument can be repeated.")
 parser.add_argument("--compress", dest="compress", action="store_true", help="Compress glyph bitmaps using DEFLATE with group-based compression.")
+parser.add_argument("--max-group-bytes", dest="max_group_bytes", type=int, default=65536, help="Cap on a compression group's uncompressed size (default 65536). The device mallocs one group at a time while decompressing, so smaller groups survive a fragmented heap at some cost in compression ratio.")
 parser.add_argument("--zopfli", dest="zopfli", action="store_true", help="Use Zopfli for the DEFLATE backend instead of zlib. Produces standard raw-DEFLATE streams (decoded unchanged by the on-device uzlib inflater), typically a few percent smaller than zlib -9, at the cost of much slower compression. Requires --compress and the 'zopfli' package.")
 parser.add_argument("--force-autohint", dest="force_autohint", action="store_true", help="Force FreeType auto-hinter instead of native font hinting. Improves stem width consistency for fonts with weak or no native TrueType hints.")
 parser.add_argument("--pnum", dest="pnum", action="store_true", help="Use proportional numerals (pnum OpenType feature) instead of default tabular figures. Reduces visual gaps between digits in running prose.")
@@ -833,7 +834,7 @@ if compress:
     # 64 KB cap: large enough to hold any single built-in script group with
     # headroom, small enough to be a comfortable transient malloc on the
     # ESP32-C3.
-    GROUP_MAX_UNCOMPRESSED_BYTES = 65536
+    GROUP_MAX_UNCOMPRESSED_BYTES = args.max_group_bytes
 
     def get_script_group(code_point):
         for i, (start, end) in enumerate(SCRIPT_GROUP_RANGES):

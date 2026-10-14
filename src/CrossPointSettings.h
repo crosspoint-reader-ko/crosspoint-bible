@@ -376,8 +376,8 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // warmth are always remembered even when this is disabled.
   uint8_t frontlightRestoreOnWake = 1;
   // Language setting (Language enum index). Persisted as an ISO code string, so the index is only
-  // a runtime handle; the KO build's I18n ctor defaults to Language::KOREAN when nothing is stored.
-  uint8_t language = 0;
+  // a runtime handle. CrossPoint Bible defaults to Korean (Language::KOREAN = 1) when nothing is stored.
+  uint8_t language = 1;
   // Keyboard layouts the user can reach, using keyboard_layouts::ALL table bits.
   // 0 means "not configured", resolved to the UI language's layout plus English.
   // Any other value is an explicit choice and is used as-is: the language of the
