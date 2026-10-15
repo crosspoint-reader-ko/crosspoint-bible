@@ -12,7 +12,7 @@ python3 tools/bible/epub2cpb.py "성경전서 개역개정판.epub" krv.cpb --ti
 
 두 가지로 쓸 수 있다.
 
-- **펌웨어에 내장**: 빌드할 때 `scripts/embed_bible_pack.py`가 EPUB(`$BIBLE_EPUB`, `custom_bible_epub`, iCloud Drive `Books/_성경` 순)을 변환해 `build/bible/<해시>.cpb`를 만들고 `src/bible/generated/EmbeddedPack.S`의 `.incbin`으로 링크한다. 둘 다 gitignore다. `BIBLE_EMBED=0`이면 넣지 않는다.
+- **펌웨어에 내장**: 빌드할 때 `scripts/embed_bible_pack.py`가 EPUB(`$BIBLE_EPUB`, `custom_bible_epub`, iCloud Drive `Books/_성경` 순)을 변환해 `build/bible/<해시>.cpb`를 만들고 `src/bible/generated/EmbeddedPack.cpp`의 `.incbin`으로 링크한다. 둘 다 gitignore다. `BIBLE_EMBED=0`이면 넣지 않는다.
 - **SD 카드**: `/bible/` 폴더에 넣는다. `.cpb`가 여러 개면 이름순 첫 파일을 연다. SD 팩이 있으면 내장 팩보다 먼저 쓴다.
 
 - 지원하는 EPUB: "ESV 템플릿" 한국어 성경(`bNN.MM.Name.text.html`, `span.chapter-num`, `span.verse-num`, `p.heading`).
