@@ -58,6 +58,12 @@ CrossPoint 한국어 펌웨어(`release/korean`, 1.6.5-ko.1)를 성경 전용 �
 - 공개 리포 `crosspoint-reader-ko/crosspoint-bible`. 릴리스 펌웨어는 개역한글(getBible `korean`, 공개 저작물, `data/bible/krv1961.cpb`)을 내장한다. 변환기는 getBible JSON도 읽고, 팩 제목 뒤에 메타정보(판, 저작권/이용 허락, 출처, 버전, 참고)를 싣는다. 메뉴의 성경 정보가 이를 보여 준다.
 - CI(`ci.yml`): 변환기·호스트 테스트, X4/X3 빌드. 릴리스(`release.yml`): `v*` 태그에서 gh_release 빌드, 펌웨어·개역한글 팩·변환기 첨부.
 
+- 다국어(0.2.0, `docs/languages.md`): upstream CrossPoint를 따라 기본 언어를 영어로 바꿨다. 펌웨어에는 영어 Open Translation Bible(CC BY-SA 4.0), Noto Serif 5단계, Noto Sans UI, 하이픈 패턴 11개 언어, UI 번역 24개가 들어간다(3.64MB). 나머지 23개 언어는 언어별 SD 번들(`/bible/lang/<code>/`, `/bible/fonts/<code>/`)로 릴리스에 올린다. 한국어 번들은 개역한글·열린 성경과 KoPub 바탕·리디바탕, UI 글꼴 Pretendard.
+- 아랍어·페르시아어·히브리어는 기기에서 MiniBidi로 그리고, 힌디어·말라얄람어는 빌드 때 HarfBuzz로 미리 조합해 사용자 영역 글리프로 넣는다(UI는 영어).
+- 책 격자: X4 칸(14pt 굵게 68px)에 맞도록 영어·독일어·네덜란드어·러시아어·이탈리아어·일본어 약어를 줄였고, 약어를 만들 때와 번들을 만들 때 폭을 잰다. 기기에서는 넘치는 약어를 자른다.
+- 일본어·중국어 Noto CJK는 힌팅 정보가 없어 가는 가로획이 회색 두 줄로 흐려졌다. 번들 글꼴을 오토힌터로 그려 한 줄로 맞춘다(`fonts.lock.json`의 `hinting`).
+- 화면 시나리오는 빈 SD(내장 영어)가 기본이다. 언어 시나리오 9개는 `sim/make-sd.sh`로 만든 번들 SD를 쓴다. 호스트 테스트 153개.
+
 ## 뒤로 미룬 것
 
 - 본문 검색(한글 입력기 필요). 팩에 색인을 덧붙이는 방식으로 형식 버전 2에서 한다.

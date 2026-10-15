@@ -1,21 +1,23 @@
 name: Release
 
-# Push a tag like v0.1.0. The version in platformio.ini ([crosspoint] version) must match.
+# Push a tag like v0.2.0. The version in platformio.ini ([crosspoint] version) must match.
 on:
   push:
     tags: ['v*']
+  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
-  release:
+  firmware:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
         with:
           submodules: recursive
       - name: Check version
+        if: github.ref_type == 'tag'
         run: |
           want="${GITHUB_REF_NAME#v}"
           have=$(sed -n 's/^version = //p' platformio.ini | head -1)
@@ -25,14 +27,61 @@ jobs:
           env: gh_release
       - name: Build
         run: pio run -e gh_release -j1
-      - name: Collect assets
+      - name: Collect
         run: |
-          v="${GITHUB_REF_NAME#v}"
+          v=$(sed -n 's/^version = //p' platformio.ini | head -1)
           mkdir -p dist
           cp .pio/build/gh_release/firmware.bin "dist/crosspoint-bible-$v-x4-x3.bin"
-          cp data/bible/krv1961.cpb dist/krv1961.cpb
-          cp tools/bible/epub2cpb.py dist/epub2cpb.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware
+          path: dist/*
+
+  bundles:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.13'
+      - name: Python packages
+        run: pip install fonttools==4.67.0 freetype-py==2.5.1 uharfbuzz==0.56.3 pillow==12.3.0
+      - name: Open Translation Bible (pinned commit, text only)
+        run: |
+          commit=$(python3 -c "import json; print(json.load(open('tools/bible/languages.json'))['otb']['commit'])")
+          git clone --filter=blob:none --no-checkout https://github.com/OpenTranslationBible/open-bible.git build/otb
+          git -C build/otb sparse-checkout set --no-cone /lang/ /LICENCE.md
+          git -C build/otb checkout --quiet "$commit"
+      - uses: actions/cache@v4
+        with:
+          path: build/fonts-cache
+          key: fonts-${{ hashFiles('tools/bible/fonts.lock.json') }}
+      - name: Build language bundles
+        run: python3 tools/bible/bundle.py --otb build/otb
+      - name: Built-in English pack is current
+        run: |
+          python3 tools/bible/bundle.py --otb build/otb --lang --english build/otb-en.cpb
+          cmp build/otb-en.cpb data/bible/otb-en.cpb
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bundles
+          path: dist/bundles/*.zip
+
+  release:
+    needs: [firmware, bundles]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Checksums
+        run: |
+          cp tools/bible/epub2cpb.py dist/
           (cd dist && sha256sum * > SHA256SUMS)
+          ls -l dist
       - uses: softprops/action-gh-release@v2
         with:
           files: dist/*
