@@ -8,7 +8,7 @@ just its Bible):
   dist/bundles/<code>/bible/lang/<code>/README.txt           what this is, where to copy it
   dist/bundles/<code>/bible/lang/<code>/LICENSES/            Bible licenses (OTB CC BY-SA 4.0 ...)
   dist/bundles/<code>/bible/fonts/<code>/<label>/<pt>.epdfont reader fonts, sizes_pt
-  dist/bundles/<code>/bible/fonts/<code>/ui/<ui pt>.epdfont   system font
+  dist/bundles/<code>/bible/fonts/<code>/ui/<pt>.epdfont      system font, ui_sizes_pt
   dist/bundles/<code>/bible/fonts/<code>/LICENSES/           font licenses
   dist/bundles/crosspoint-bible-<version>-<code>.zip         the tree above, rooted at the SD card root
   dist/bundles/crosspoint-bible-<version>-all.zip            every language in one zip (full runs only)
@@ -170,6 +170,31 @@ def shaped_bible(data, code):
     return (verses, headings, names, abbrs, title, meta), clusters
 
 
+def fit_bidi_abbreviations(data, entry, args):
+    """Book-grid labels of Arabic-script and Hebrew packs, derived again so each fits a grid cell
+    in the language's system font (the grid draws with it). The firmware joins Arabic letters at
+    runtime, so the labels are measured shaped, with HarfBuzz."""
+    try:
+        import uharfbuzz as hb
+    except ImportError:
+        return data
+    verses, headings, names, abbrs, title, meta = data
+    path, _ = fonts.fetch(entry["ui"], args.cache)
+    face = hb.Face(hb.Blob.from_file_path(path))
+    font = hb.Font(face)
+    px = 14 * fonts.DPI / 72  # smallest UI size (BibleFonts::UI_POINTS)
+
+    def fits(text):
+        buf = hb.Buffer()
+        buf.add_str(text)
+        buf.guess_segment_properties()
+        hb.shape(font, buf)
+        width = sum(p.x_advance for p in buf.glyph_positions) * px / face.upem
+        return width <= epub2cpb.GRID_LABEL_WIDTH - 4  # synthetic bold widens a little
+
+    return verses, headings, names, epub2cpb.derive_abbreviations(names, fits=fits), title, meta
+
+
 # --- Fonts
 
 
@@ -283,6 +308,8 @@ def build_language(entry, cfg, args, pool):
             data = epub2cpb.convert(src, code)
         else:
             data = build_otb(args.otb, entry, args.otb_commit, b.get("title"))
+            if entry.get("bidi") == "runtime":
+                data = fit_bidi_abbreviations(data, entry, args)
         if entry.get("shaped"):
             data, clusters = shaped_bible(data, code)
         verses, headings, names, abbrs, title, meta = data
@@ -311,7 +338,8 @@ def build_language(entry, cfg, args, pool):
 
     # Fonts
     sizes = cfg["sizes_pt"]
-    ui_pt = cfg["ui_size_pt"]
+    # 10 pt for Settings, the others for the Bible screens (BibleFonts::UI_POINTS).
+    ui_sizes = cfg["ui_sizes_pt"]
     reader = [r for r in entry["reader"] if r["font"] not in fonts.BUILTIN]
     ui_font = entry["ui"] if entry["ui"] not in fonts.BUILTIN else None
     jobs, shaped_jobs, font_ids = [], [], []
@@ -346,7 +374,8 @@ def build_language(entry, cfg, args, pool):
             if ui_font in FALLBACKS:
                 path = [path] + [fonts.fetch(f, args.cache)[0] for f in FALLBACKS[ui_font]]
                 font_ids += FALLBACKS[ui_font]
-            jobs.append((path, ui_pt, cps, os.path.join(font_dir, "ui", f"{ui_pt}.epdfont")))
+            for pt in ui_sizes:
+                jobs.append((path, pt, cps, os.path.join(font_dir, "ui", f"{pt}.epdfont")))
     results = list(pool.map(_render, jobs)) + list(pool.map(_render_shaped, shaped_jobs))
     builtin = builtin_cmap()
     for out, missing, _ in results:
@@ -381,7 +410,7 @@ def build_language(entry, cfg, args, pool):
         if r["font"] not in fonts.BUILTIN:
             contents.append(f"  bible/fonts/{code}/{r['label']}/  reader font {r['font']}, {', '.join(map(str, sizes))} pt")
     if os.path.isdir(os.path.join(font_dir, "ui")):
-        contents.append(f"  bible/fonts/{code}/ui/  system font {entry['ui']}, {ui_pt} pt")
+        contents.append(f"  bible/fonts/{code}/ui/  system font {entry['ui']}, {', '.join(map(str, ui_sizes))} pt")
     with open(os.path.join(lang_dir, "README.txt"), "w", encoding="utf-8") as f:
         f.write(README.format(version=args.version, name=entry["name"], code=code, contents="\n".join(contents) + "\n",
                               font_licenses=f" and bible/fonts/{code}/LICENSES/ (fonts)" if font_ids else ""))

@@ -101,9 +101,9 @@ void BibleInfoActivity::render(RenderLock&&) {
   const int x = left + MARGIN;
   const int width = screenW - left - right - 2 * MARGIN;
   const int hintsHeight = UITheme::getInstance().getMetrics().buttonHintsHeight;
-  const int titleFont = BibleFonts::IDS[3];
+  const int titleFont = BibleFonts::TITLE_FONT_ID;
   const int labelFont = BibleFonts::LABEL_FONT_ID;
-  const int valueFont = BibleFonts::IDS[1];
+  const int valueFont = BibleFonts::ROW_FONT_ID;
   const int labelH = renderer.getLineHeight(labelFont);
   const int valueH = renderer.getLineHeight(valueFont);
 

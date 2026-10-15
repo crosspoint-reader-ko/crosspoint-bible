@@ -55,7 +55,7 @@ std::string BibleMenuActivity::valueOf(int row) const {
     case LANGUAGE: {
       // The language's own name (한국어) when the menu font draws it, else the English one.
       const LanguageInfo* lang = BIBLE.currentLanguage();
-      if (lang && !lang->name.empty() && renderer.hasGlyphs(BibleFonts::IDS[1], lang->name.c_str())) {
+      if (lang && !lang->name.empty() && renderer.hasGlyphs(BibleFonts::ROW_FONT_ID, lang->name.c_str())) {
         return lang->name;
       }
       return BibleLanguageActivity::englishName(BIBLE.languageCode());
@@ -202,12 +202,13 @@ void BibleMenuActivity::render(RenderLock&&) {
       StrId::STR_BIBLE_INFO,   StrId::STR_SETTINGS_TITLE,
   };
 
-  const int titleFont = BibleFonts::IDS[3];
+  const int titleFont = BibleFonts::TITLE_FONT_ID;
   const int titleH = renderer.getLineHeight(titleFont) + 16;
   const int available = screenH - top - bottom - hintsHeight - titleH - 10;
   // Rows in pages: the 16 pt font (14 pt in landscape) with room around each row.
-  const int rowFont =
-      available >= 8 * (renderer.getLineHeight(BibleFonts::IDS[1]) + 20) ? BibleFonts::IDS[1] : BibleFonts::IDS[0];
+  const int rowFont = available >= 8 * (renderer.getLineHeight(BibleFonts::ROW_FONT_ID) + 20)
+                          ? BibleFonts::ROW_FONT_ID
+                          : BibleFonts::LABEL_FONT_ID;
   const int rowH = renderer.getLineHeight(rowFont) + 20;
   const int perPage = std::max(1, available / rowH);
   const int count = static_cast<int>(rows.size());

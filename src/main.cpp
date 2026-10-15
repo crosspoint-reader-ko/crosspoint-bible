@@ -69,6 +69,15 @@ EpdFontFamily notoSerif22FontFamily(&notoSerif22RegularFont);
 EpdFont notoSerif28RegularFont(&noto_serif_28_regular);
 EpdFontFamily notoSerif28FontFamily(&notoSerif28RegularFont);
 
+// Built-in sans-serif fonts of the Bible screens (menus, lists, chrome). A language bundle's
+// system font replaces them (BibleFonts::apply).
+EpdFont notoSans14RegularFont(&noto_sans_14_regular);
+EpdFontFamily notoSans14FontFamily(&notoSans14RegularFont);
+EpdFont notoSans16RegularFont(&noto_sans_16_regular);
+EpdFontFamily notoSans16FontFamily(&notoSans16RegularFont);
+EpdFont notoSans22RegularFont(&noto_sans_22_regular);
+EpdFontFamily notoSans22FontFamily(&notoSans22RegularFont);
+
 // Definitions for SilentRestart.h. RTC_NOINIT survives ESP.restart() but not power loss.
 RTC_NOINIT_ATTR uint32_t silentRebootMagic;
 RTC_NOINIT_ATTR uint32_t silentRebootTarget;
@@ -238,10 +247,12 @@ void setupDisplayAndFonts(bool seamless = false) {
 
   // Reader font slots start on the built-in Noto Serif; the saved language may switch them
   // to its SD fonts below.
-  static const EpdFontFamily* const notoSerif[BibleFonts::COUNT] = {
-      &notoSerif14FontFamily, &notoSerif16FontFamily, &notoSerif18FontFamily, &notoSerif22FontFamily,
-      &notoSerif28FontFamily};
-  BibleFonts::registerBuiltIns(renderer, notoSerif);
+  static const EpdFontFamily* const notoSerif[BibleFonts::COUNT] = {&notoSerif14FontFamily, &notoSerif16FontFamily,
+                                                                    &notoSerif18FontFamily, &notoSerif22FontFamily,
+                                                                    &notoSerif28FontFamily};
+  static const EpdFontFamily* const notoSans[BibleFonts::UI_COUNT] = {&notoSans14FontFamily, &notoSans16FontFamily,
+                                                                      &notoSans22FontFamily};
+  BibleFonts::registerBuiltIns(renderer, notoSerif, notoSans);
 
   // Unknown font ids fall back to the UI font
   renderer.setFallbackFont(UI_FONT_ID);

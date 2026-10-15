@@ -62,7 +62,7 @@ const BibleTextInputActivity::Key& BibleTextInputActivity::selectedKey() const {
 
 void BibleTextInputActivity::onEnter() {
   Activity::onEnter();
-  hangulAvailable = renderer.hasGlyphs(BibleFonts::IDS[3], "ㅂㅈㄷㄱ한글");
+  hangulAvailable = renderer.hasGlyphs(BibleFonts::TITLE_FONT_ID, "ㅂㅈㄷㄱ한글");
   hangulMode = hangulAvailable;
   shift = false;
   row = 1;
@@ -173,7 +173,7 @@ void BibleTextInputActivity::render(RenderLock&&) {
   const int width = screenW - left - right - 2 * MARGIN;
   const int hintsHeight = UITheme::getInstance().getMetrics().buttonHintsHeight;
   const int labelFont = BibleFonts::LABEL_FONT_ID;
-  const int textFont = BibleFonts::IDS[3];
+  const int textFont = BibleFonts::TITLE_FONT_ID;
   const auto& rows = layout();
   const std::string current = text();
 
@@ -243,9 +243,9 @@ void BibleTextInputActivity::render(RenderLock&&) {
           hangul::appendUtf8(label, k.cp);
         }
         // Largest font that fits the key.
-        int font = BibleFonts::IDS[0];
-        for (int i = 3; i >= 0; i--) {
-          const int id = BibleFonts::IDS[i];
+        int font = BibleFonts::UI_IDS[0];
+        for (int i = BibleFonts::UI_COUNT - 1; i >= 0; i--) {
+          const int id = BibleFonts::UI_IDS[i];
           if (renderer.getTextWidth(id, label.c_str(), EpdFontFamily::BOLD) <= kw - 10 &&
               renderer.getLineHeight(id) <= keyH - 8) {
             font = id;

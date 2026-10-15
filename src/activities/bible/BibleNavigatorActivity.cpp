@@ -173,14 +173,14 @@ void BibleNavigatorActivity::loop() {
 }
 
 int BibleNavigatorActivity::fitFont(int cellWidth, int cellHeight, const char* widest) const {
-  for (int i = BibleFonts::COUNT - 1; i > 0; i--) {
-    const int id = BibleFonts::IDS[i];
+  for (int i = BibleFonts::UI_COUNT - 1; i > 0; i--) {
+    const int id = BibleFonts::UI_IDS[i];
     if (renderer.getLineHeight(id) <= cellHeight - 6 &&
         renderer.getTextWidth(id, widest, EpdFontFamily::BOLD) <= cellWidth - 10) {
       return id;
     }
   }
-  return BibleFonts::IDS[0];
+  return BibleFonts::UI_IDS[0];
 }
 
 void BibleNavigatorActivity::drawCell(int x, int y, int w, int h, int fontId, const char* label, bool selected,
@@ -212,7 +212,7 @@ void BibleNavigatorActivity::drawBookGrid(int top, int left, int width, int heig
   const char* widest = "";
   int widestW = 0;
   for (int i = 0; i < pack.bookCount(); i++) {
-    const int w = renderer.getTextWidth(BibleFonts::IDS[0], pack.book(i).abbr, EpdFontFamily::BOLD);
+    const int w = renderer.getTextWidth(BibleFonts::UI_IDS[0], pack.book(i).abbr, EpdFontFamily::BOLD);
     if (w > widestW) {
       widestW = w;
       widest = pack.book(i).abbr;
@@ -276,7 +276,7 @@ void BibleNavigatorActivity::render(RenderLock&&) {
   const int hintsHeight = UITheme::getInstance().getMetrics().buttonHintsHeight;
 
   // Header: the selection in words, large.
-  const int titleFont = BibleFonts::IDS[3];
+  const int titleFont = BibleFonts::TITLE_FONT_ID;
   const int labelFont = BibleFonts::LABEL_FONT_ID;
   std::string title = pack.book(book).name;
   std::string subtitle;
@@ -297,8 +297,8 @@ void BibleNavigatorActivity::render(RenderLock&&) {
   // Long titles ("John Chapter 3 verse 16", German book names) step down a size or two, then
   // truncate; the hint under them wraps onto a second line.
   int titleId = titleFont;
-  for (int i = 3; i >= 1; i--) {
-    titleId = BibleFonts::IDS[i];
+  for (int i = BibleFonts::UI_COUNT - 1; i >= 0; i--) {
+    titleId = BibleFonts::UI_IDS[i];
     if (renderer.getTextWidth(titleId, title.c_str(), EpdFontFamily::BOLD) <= width) break;
   }
   title = renderer.truncatedText(titleId, title.c_str(), width, EpdFontFamily::BOLD);

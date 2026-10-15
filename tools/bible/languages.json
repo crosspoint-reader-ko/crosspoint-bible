@@ -13,7 +13,12 @@
   22,
   28
  ],
- "ui_size_pt": 10,
+ "ui_sizes_pt": [
+  10,
+  14,
+  16,
+  22
+ ],
  "languages": [
   {
    "code": "en",

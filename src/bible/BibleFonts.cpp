@@ -13,6 +13,9 @@ namespace BibleFonts {
 
 namespace {
 const EpdFontFamily* builtIns[COUNT] = {};
+const EpdFontFamily* builtInSans[UI_COUNT] = {};
+// Reader slot of the same or nearest size, for UI glyphs only the reader font has.
+constexpr int READER_FOR_UI[UI_COUNT] = {0, 1, 3};
 
 // Registers an SD font in `slot`; false (and nothing registered) when the file is missing or bad.
 bool insertSd(GfxRenderer& renderer, int slot, const std::string& path) {
@@ -41,11 +44,17 @@ std::string firstFontFile(const std::string& dir) {
 }
 }  // namespace
 
-void registerBuiltIns(GfxRenderer& renderer, const EpdFontFamily* const families[COUNT]) {
+void registerBuiltIns(GfxRenderer& renderer, const EpdFontFamily* const serif[COUNT],
+                      const EpdFontFamily* const sans[UI_COUNT]) {
   for (int i = 0; i < COUNT; i++) {
-    builtIns[i] = families[i];
-    renderer.insertFont(BUILTIN_IDS[i], families[i]);
-    renderer.insertFont(IDS[i], families[i]);
+    builtIns[i] = serif[i];
+    renderer.insertFont(BUILTIN_IDS[i], serif[i]);
+    renderer.insertFont(IDS[i], serif[i]);
+  }
+  for (int i = 0; i < UI_COUNT; i++) {
+    builtInSans[i] = sans[i];
+    renderer.insertFont(UI_BUILTIN_IDS[i], sans[i]);
+    renderer.insertFont(UI_IDS[i], sans[i]);
   }
 }
 
@@ -71,11 +80,28 @@ std::string apply(GfxRenderer& renderer, const LanguageInfo* lang, const std::st
     if (!sd) renderer.insertFont(IDS[i], builtIns[i]);
   }
 
-  // UI: the language's system font with the built-in Noto Sans behind it.
+  // Bible screens: the language's system font at each UI size with Noto Sans behind it, or
+  // Noto Sans alone. Without a system font, glyphs Noto Sans lacks (Hangul, pre-shaped
+  // Hindi/Malayalam clusters in book names) come from the reader font.
+  const std::string uiDir = lang ? std::string(BibleSession::FONT_DIR) + "/" + lang->code + "/ui/" : "";
+  for (int i = 0; i < UI_COUNT; i++) {
+    renderer.clearGlyphFallback(UI_IDS[i]);
+    const bool sd =
+        lang && lang->hasUiFont && insertSd(renderer, UI_IDS[i], uiDir + std::to_string(UI_POINTS[i]) + ".epdfont");
+    if (sd) {
+      renderer.setGlyphFallback(UI_IDS[i], UI_BUILTIN_IDS[i]);
+    } else {
+      renderer.insertFont(UI_IDS[i], builtInSans[i]);
+      if (!used.empty()) renderer.setGlyphFallback(UI_IDS[i], IDS[READER_FOR_UI[i]]);
+    }
+  }
+
+  // Settings: UI_FONT_ID redirected to the system font's 10 pt.
   renderer.clearFontRedirect();
   renderer.removeFont(SYSTEM_FONT_ID);
   if (lang && lang->hasUiFont) {
-    const std::string path = firstFontFile(std::string(BibleSession::FONT_DIR) + "/" + lang->code + "/ui");
+    std::string path = uiDir + "10.epdfont";
+    if (!Storage.exists(path.c_str())) path = firstFontFile(uiDir.substr(0, uiDir.size() - 1));
     if (!path.empty() && insertSd(renderer, SYSTEM_FONT_ID, path)) {
       renderer.setGlyphFallback(SYSTEM_FONT_ID, UI_FONT_ID);
       renderer.setFontRedirect(UI_FONT_ID, SYSTEM_FONT_ID);

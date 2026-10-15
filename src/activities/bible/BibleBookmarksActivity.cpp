@@ -164,7 +164,7 @@ std::string BibleBookmarksActivity::snippet(const bible::Bookmark& b) {
 
 void BibleBookmarksActivity::drawList(int top, int left, int width, int height) {
   auto& store = BIBLE.bookmarks();
-  const int rowFont = BibleFonts::IDS[2];
+  const int rowFont = BibleFonts::ROW_FONT_ID;
   const int smallFont = BibleFonts::LABEL_FONT_ID;
   const bool items = level == Level::Items;
   const int rowH = renderer.getLineHeight(rowFont) + (items ? renderer.getLineHeight(smallFont) + 6 : 0) + 22;
@@ -219,7 +219,7 @@ void BibleBookmarksActivity::drawConfirm(int left, int width, int screenH) {
   } else {
     question = BIBLE.referenceLabel(store.folders()[folder].items[selected]) + " " + tr(STR_BIBLE_DELETE_BOOKMARK);
   }
-  const int font = BibleFonts::IDS[1];
+  const int font = BibleFonts::ROW_FONT_ID;
   const int boxH = renderer.getLineHeight(font) * 4 + 40;
   const int y = (screenH - boxH) / 2;
   renderer.fillRect(left - 8, y, width + 16, boxH, false);
@@ -236,7 +236,7 @@ void BibleBookmarksActivity::render(RenderLock&&) {
   const int x = left + MARGIN;
   const int width = screenW - left - right - 2 * MARGIN;
   const int hintsHeight = UITheme::getInstance().getMetrics().buttonHintsHeight;
-  const int titleFont = BibleFonts::IDS[3];
+  const int titleFont = BibleFonts::TITLE_FONT_ID;
   const int labelFont = BibleFonts::LABEL_FONT_ID;
 
   std::string title;
@@ -272,10 +272,9 @@ void BibleBookmarksActivity::render(RenderLock&&) {
   scope.endScanAndPrewarm();
   drawAll();
 
-  const auto hints = confirmingDelete
-                         ? mappedInput.mapLabels(tr(STR_CANCEL), tr(STR_BIBLE_DELETE), "", "")
-                         : mappedInput.mapLabels(tr(STR_BACK), tr(STR_SELECT), tr(STR_BIBLE_HINT_PREV),
-                                                 tr(STR_BIBLE_HINT_NEXT));
+  const auto hints = confirmingDelete ? mappedInput.mapLabels(tr(STR_CANCEL), tr(STR_BIBLE_DELETE), "", "")
+                                      : mappedInput.mapLabels(tr(STR_BACK), tr(STR_SELECT), tr(STR_BIBLE_HINT_PREV),
+                                                              tr(STR_BIBLE_HINT_NEXT));
   GUI.drawButtonHints(renderer, hints.btn1, hints.btn2, hints.btn3, hints.btn4);
   renderer.displayBuffer(HalDisplay::FAST_REFRESH);
 }

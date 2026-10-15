@@ -1,7 +1,8 @@
 #!/bin/bash
 # Regenerate the built-in fonts of the multilingual CrossPoint Bible firmware:
 #   reader  noto_serif_{14,16,18,22,28}_regular.h  Noto Serif, 2-bit, DEFLATE (16 KB groups)
-#   UI      noto_sans_10_regular.h                 Noto Sans, 2-bit, uncompressed
+#   UI      noto_sans_10_regular.h                 Noto Sans, 2-bit, uncompressed (Settings)
+#           noto_sans_{14,16,22}_regular.h         Noto Sans, 2-bit, DEFLATE (Bible menus and chrome)
 # Coverage: fontconvert.py's default Latin/Cyrillic blocks plus Greek, Latin Extended
 # Additional, spacing modifier letters (U+02BE ...) and the 27 Hebrew letters
 # (from Noto Sans Hebrew, which backs up Noto Serif in the font stack). Bold and
@@ -32,6 +33,14 @@ for size in ${SIZES[@]}; do
   name=noto_serif_${size}_regular
   echo "Generating $name.h ..."
   $PY fontconvert.py "$name" "$size" "$SERIF" "$HEBREW" --2bit --compress --max-group-bytes 16384 \
+    "${INTERVALS[@]}" > "../builtinFonts/$name.h" &
+  pids+=($!)
+done
+
+for size in 14 16 22; do
+  name=noto_sans_${size}_regular
+  echo "Generating $name.h ..."
+  $PY fontconvert.py "$name" "$size" "$SANS" "$HEBREW" --2bit --compress --max-group-bytes 16384 \
     "${INTERVALS[@]}" > "../builtinFonts/$name.h" &
   pids+=($!)
 done

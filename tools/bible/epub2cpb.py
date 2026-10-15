@@ -366,12 +366,14 @@ def fits_grid(text):
     return w is None or w <= GRID_LABEL_WIDTH
 
 
-def derive_abbreviations(book_names, limit=15):
+def derive_abbreviations(book_names, limit=15, fits=None):
     """Short unique abbreviations from book names: a leading number ("1 ", "1. ", or an ordinal
     word anywhere) becomes a digit prefix; then the first 3 letters of the first word, growing
     (initials of the other words, then more letters) until unique within the 66 books. Each
     must fit a book-grid cell (fits_grid); when the longer ones do not, two letters or the
-    first letter with a later one are tried."""
+    first letter with a later one are tried. `fits` replaces that check (bundle.py measures
+    Arabic script with the bundle's own font)."""
+    fits = fits or fits_grid
     out, used = {}, set()
     for bk in range(1, 67):
         words = (book_names.get(bk) or f"B{bk}").replace(".", " ").split()
@@ -392,12 +394,16 @@ def derive_abbreviations(book_names, limit=15):
         candidates = [_prefix(first, 3), _prefix(first, 3) + initials]
         candidates += [_prefix(first, n) for n in range(4, len(first) + 1)]
         candidates += [first + initials, "".join(_letters(w) for w in words)]
+        if num + candidates[0] not in used and not fits(num + candidates[0]):
+            # Free but too wide: two letters read better than a longer form that happens to be
+            # narrower (Arabic letters are wider at the end of a word than inside it).
+            candidates.insert(1, _prefix(first, 2))
         candidates += [_prefix(first, 2)] + [first[0] + ch for ch in first[2:] if ch.isalpha()]
         candidates += [first[0] + ch for w in words[1:] for ch in _letters(w)[:1]]
         choice = None
         for c in candidates:
             c = num + c
-            if c and c not in used and len(c.encode("utf-8")) <= limit and fits_grid(c):
+            if c and c not in used and len(c.encode("utf-8")) <= limit and fits(c):
                 choice = c
                 break
         if choice is None:

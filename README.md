@@ -38,15 +38,16 @@ English is built in. For any other language, download its bundle and unzip it at
     ko/
       KoPub 바탕/14.epdfont 16.epdfont 18.epdfont 22.epdfont 28.epdfont
       리디바탕/...
-      ui/10.epdfont        menu font
+      ui/10.epdfont 14.epdfont 16.epdfont 22.epdfont   system font (sans-serif)
       LICENSES/
     ja/
       Noto Serif JP/...
-      ui/10.epdfont
+      ui/...
 ```
 
 - When a language has more than one Bible, the menu shows **Bible** to choose one (Korean: 개역한글, 열린 성경). When it has more than one reader font, the menu shows **Font** (Korean: KoPub 바탕, 리디바탕).
-- Latin and Cyrillic languages (da, de, es, fi, fr, id, is, it, nb, nl, pt, ru, so, sv, sw) use the built-in Noto Serif, so their bundles hold only the Bible.
+- Each bundle carries the language's sans-serif system font (Pretendard for Korean, Noto Sans JP/SC, Noto Sans Arabic, Vazirmatn, Noto Sans Hebrew). Switching language makes it the font of Settings, the menus and the lists; the Bible text uses the reader font.
+- Latin and Cyrillic languages (da, de, es, fi, fr, id, is, it, nb, nl, pt, ru, so, sv, sw) use the built-in Noto Serif and Noto Sans, so their bundles hold only the Bible.
 - The reading position and bookmarks carry over when you switch: every Bible uses the same 66-book numbering.
 
 | Language list | 한국어 | 日本語 | العربية |

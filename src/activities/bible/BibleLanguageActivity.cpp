@@ -85,8 +85,8 @@ void BibleLanguageActivity::render(RenderLock&&) {
   const int x = left + MARGIN;
   const int width = screenW - left - right - 2 * MARGIN;
   const int hintsHeight = UITheme::getInstance().getMetrics().buttonHintsHeight;
-  const int titleFont = BibleFonts::IDS[3];
-  const int rowFont = BibleFonts::IDS[1];
+  const int titleFont = BibleFonts::TITLE_FONT_ID;
+  const int rowFont = BibleFonts::ROW_FONT_ID;
   const int nativeFont = UI_FONT_ID;
   const int labelFont = BibleFonts::LABEL_FONT_ID;
   const int titleH = renderer.getLineHeight(titleFont) + renderer.getLineHeight(labelFont) + 18;
