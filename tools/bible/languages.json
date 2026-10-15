@@ -1,0 +1,427 @@
+{
+ "_comment": "Languages CrossPoint Bible ships. One SD bundle per language except the built-in English. Arabic, Persian and Hebrew render at runtime (MiniBidi, as upstream CrossPoint); Hindi and Malayalam are pre-shaped into private-use glyphs (shaped: true). See docs/languages.md.",
+ "otb": {
+  "repo": "https://github.com/OpenTranslationBible/open-bible",
+  "license": "CC BY-SA 4.0",
+  "attribution": "Open Translation Bible (https://openbible.uk), CC BY-SA 4.0"
+ },
+ "sizes_pt": [
+  14,
+  16,
+  18,
+  22,
+  28
+ ],
+ "ui_size_pt": 10,
+ "languages": [
+  {
+   "code": "en",
+   "otb": "en-GB",
+   "name": "English",
+   "script": "latin",
+   "dir": "ltr",
+   "wrap": "word",
+   "hyphenation": "en",
+   "builtin": true,
+   "reader": [
+    {
+     "label": "Noto Serif",
+     "font": "NotoSerif"
+    }
+   ],
+   "ui": "NotoSans"
+  },
+  {
+   "code": "ko",
+   "otb": "ko-KR",
+   "name": "한국어",
+   "script": "hangul",
+   "dir": "ltr",
+   "wrap": "char",
+   "hyphenation": null,
+   "bibles": [
+    {
+     "id": "krv1961",
+     "source": "data/bible/krv1961.cpb"
+    },
+    {
+     "id": "otb",
+     "title": "열린 성경"
+    }
+   ],
+   "reader": [
+    {
+     "label": "KoPub 바탕",
+     "font": "KoPubBatangMedium"
+    },
+    {
+     "label": "리디바탕",
+     "font": "RIDIBatang"
+    }
+   ],
+   "ui": "Pretendard"
+  },
+  {
+   "code": "ja",
+   "otb": "ja-JP",
+   "name": "日本語",
+   "script": "cjk",
+   "dir": "ltr",
+   "wrap": "char",
+   "hyphenation": null,
+   "reader": [
+    {
+     "label": "Noto Serif JP",
+     "font": "NotoSerifJP"
+    }
+   ],
+   "ui": "NotoSansJP"
+  },
+  {
+   "code": "zh",
+   "otb": "zh-CN",
+   "name": "简体中文",
+   "script": "cjk",
+   "dir": "ltr",
+   "wrap": "char",
+   "hyphenation": null,
+   "reader": [
+    {
+     "label": "Noto Serif SC",
+     "font": "NotoSerifSC"
+    }
+   ],
+   "ui": "NotoSansSC"
+  },
+  {
+   "code": "ar",
+   "otb": "ar-EG",
+   "name": "العربية",
+   "script": "arabic",
+   "dir": "rtl",
+   "wrap": "word",
+   "hyphenation": null,
+   "reader": [
+    {
+     "label": "Noto Naskh Arabic",
+     "font": "NotoNaskhArabic"
+    }
+   ],
+   "ui": "NotoSansArabic",
+   "bidi": "runtime"
+  },
+  {
+   "code": "fa",
+   "otb": "fa-IR",
+   "name": "فارسی",
+   "script": "arabic",
+   "dir": "rtl",
+   "wrap": "word",
+   "hyphenation": null,
+   "reader": [
+    {
+     "label": "Noto Naskh Arabic",
+     "font": "NotoNaskhArabic"
+    }
+   ],
+   "ui": "Vazirmatn",
+   "bidi": "runtime"
+  },
+  {
+   "code": "he",
+   "otb": "he-IL",
+   "name": "עברית",
+   "script": "hebrew",
+   "dir": "rtl",
+   "wrap": "word",
+   "hyphenation": null,
+   "reader": [
+    {
+     "label": "Noto Serif Hebrew",
+     "font": "NotoSerifHebrew"
+    }
+   ],
+   "ui": "NotoSansHebrew",
+   "bidi": "runtime"
+  },
+  {
+   "code": "hi",
+   "otb": "hi-IN",
+   "name": "हिन्दी",
+   "script": "devanagari",
+   "dir": "ltr",
+   "wrap": "word",
+   "hyphenation": null,
+   "shaped": true,
+   "reader": [
+    {
+     "label": "Noto Serif Devanagari",
+     "font": "NotoSerifDevanagari"
+    }
+   ],
+   "ui": "NotoSansDevanagari"
+  },
+  {
+   "code": "ml",
+   "otb": "ml-IN",
+   "name": "മലയാളം",
+   "script": "malayalam",
+   "dir": "ltr",
+   "wrap": "word",
+   "hyphenation": null,
+   "shaped": true,
+   "reader": [
+    {
+     "label": "Noto Serif Malayalam",
+     "font": "NotoSerifMalayalam"
+    }
+   ],
+   "ui": "NotoSansMalayalam"
+  },
+  {
+   "code": "ru",
+   "otb": "ru-RU",
+   "name": "Русский",
+   "script": "cyrillic",
+   "dir": "ltr",
+   "wrap": "word",
+   "hyphenation": "ru",
+   "reader": [
+    {
+     "label": "Noto Serif",
+     "font": "NotoSerif"
+    }
+   ],
+   "ui": "NotoSans"
+  },
+  {
+   "code": "da",
+   "otb": "da-DK",
+   "name": "Dansk",
+   "script": "latin",
+   "dir": "ltr",
+   "wrap": "word",
+   "hyphenation": null,
+   "reader": [
+    {
+     "label": "Noto Serif",
+     "font": "NotoSerif"
+    }
+   ],
+   "ui": "NotoSans"
+  },
+  {
+   "code": "de",
+   "otb": "de-DE",
+   "name": "Deutsch",
+   "script": "latin",
+   "dir": "ltr",
+   "wrap": "word",
+   "hyphenation": "de",
+   "reader": [
+    {
+     "label": "Noto Serif",
+     "font": "NotoSerif"
+    }
+   ],
+   "ui": "NotoSans"
+  },
+  {
+   "code": "es",
+   "otb": "es-ES",
+   "name": "Español",
+   "script": "latin",
+   "dir": "ltr",
+   "wrap": "word",
+   "hyphenation": "es",
+   "reader": [
+    {
+     "label": "Noto Serif",
+     "font": "NotoSerif"
+    }
+   ],
+   "ui": "NotoSans"
+  },
+  {
+   "code": "fi",
+   "otb": "fi-FI",
+   "name": "Suomi",
+   "script": "latin",
+   "dir": "ltr",
+   "wrap": "word",
+   "hyphenation": "fi",
+   "reader": [
+    {
+     "label": "Noto Serif",
+     "font": "NotoSerif"
+    }
+   ],
+   "ui": "NotoSans"
+  },
+  {
+   "code": "fr",
+   "otb": "fr-FR",
+   "name": "Français",
+   "script": "latin",
+   "dir": "ltr",
+   "wrap": "word",
+   "hyphenation": "fr",
+   "reader": [
+    {
+     "label": "Noto Serif",
+     "font": "NotoSerif"
+    }
+   ],
+   "ui": "NotoSans"
+  },
+  {
+   "code": "id",
+   "otb": "id-ID",
+   "name": "Bahasa Indonesia",
+   "script": "latin",
+   "dir": "ltr",
+   "wrap": "word",
+   "hyphenation": null,
+   "reader": [
+    {
+     "label": "Noto Serif",
+     "font": "NotoSerif"
+    }
+   ],
+   "ui": "NotoSans"
+  },
+  {
+   "code": "is",
+   "otb": "is-IS",
+   "name": "Íslenska",
+   "script": "latin",
+   "dir": "ltr",
+   "wrap": "word",
+   "hyphenation": null,
+   "reader": [
+    {
+     "label": "Noto Serif",
+     "font": "NotoSerif"
+    }
+   ],
+   "ui": "NotoSans"
+  },
+  {
+   "code": "it",
+   "otb": "it-IT",
+   "name": "Italiano",
+   "script": "latin",
+   "dir": "ltr",
+   "wrap": "word",
+   "hyphenation": "it",
+   "reader": [
+    {
+     "label": "Noto Serif",
+     "font": "NotoSerif"
+    }
+   ],
+   "ui": "NotoSans"
+  },
+  {
+   "code": "nb",
+   "otb": "nb-NO",
+   "name": "Norsk bokmål",
+   "script": "latin",
+   "dir": "ltr",
+   "wrap": "word",
+   "hyphenation": null,
+   "reader": [
+    {
+     "label": "Noto Serif",
+     "font": "NotoSerif"
+    }
+   ],
+   "ui": "NotoSans"
+  },
+  {
+   "code": "nl",
+   "otb": "nl-NL",
+   "name": "Nederlands",
+   "script": "latin",
+   "dir": "ltr",
+   "wrap": "word",
+   "hyphenation": null,
+   "reader": [
+    {
+     "label": "Noto Serif",
+     "font": "NotoSerif"
+    }
+   ],
+   "ui": "NotoSans"
+  },
+  {
+   "code": "pt",
+   "otb": "pt-BR",
+   "name": "Português (Brasil)",
+   "script": "latin",
+   "dir": "ltr",
+   "wrap": "word",
+   "hyphenation": "pt",
+   "reader": [
+    {
+     "label": "Noto Serif",
+     "font": "NotoSerif"
+    }
+   ],
+   "ui": "NotoSans"
+  },
+  {
+   "code": "so",
+   "otb": "so-SO",
+   "name": "Soomaali",
+   "script": "latin",
+   "dir": "ltr",
+   "wrap": "word",
+   "hyphenation": null,
+   "reader": [
+    {
+     "label": "Noto Serif",
+     "font": "NotoSerif"
+    }
+   ],
+   "ui": "NotoSans"
+  },
+  {
+   "code": "sv",
+   "otb": "sv-SE",
+   "name": "Svenska",
+   "script": "latin",
+   "dir": "ltr",
+   "wrap": "word",
+   "hyphenation": null,
+   "reader": [
+    {
+     "label": "Noto Serif",
+     "font": "NotoSerif"
+    }
+   ],
+   "ui": "NotoSans"
+  },
+  {
+   "code": "sw",
+   "otb": "sw-TZ",
+   "name": "Kiswahili",
+   "script": "latin",
+   "dir": "ltr",
+   "wrap": "word",
+   "hyphenation": null,
+   "reader": [
+    {
+     "label": "Noto Serif",
+     "font": "NotoSerif"
+    }
+   ],
+   "ui": "NotoSans"
+  }
+ ],
+ "upstream": {
+  "repo": "https://github.com/crosspoint-reader/crosspoint-reader",
+  "branch": "develop",
+  "commit": "bb855ef935826e86c65574b5abbd4eab974d53e0"
+ }
+}
