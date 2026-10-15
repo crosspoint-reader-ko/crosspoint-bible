@@ -20,7 +20,6 @@ constexpr int MARGIN = 16;
 void BibleMenuActivity::onEnter() {
   Activity::onEnter();
   selected = 0;
-  firstRender = true;
   requestUpdate();
 }
 
@@ -38,6 +37,10 @@ std::string BibleMenuActivity::valueOf(int row) const {
       return prefs.versePerLine ? tr(STR_BIBLE_LAYOUT_VERSES) : tr(STR_BIBLE_LAYOUT_PARAGRAPHS);
     case HEADINGS:
       return prefs.showHeadings ? tr(STR_STATE_ON) : tr(STR_STATE_OFF);
+    case ALIGN:
+      return prefs.justify ? tr(STR_BIBLE_ALIGN_JUSTIFY) : tr(STR_BIBLE_ALIGN_LEFT);
+    case SMOOTHING:
+      return SETTINGS.textAntiAliasing ? tr(STR_STATE_ON) : tr(STR_STATE_OFF);
     case ORIENTATION: {
       static constexpr StrId names[] = {StrId::STR_PORTRAIT, StrId::STR_LANDSCAPE_CW, StrId::STR_INVERTED,
                                         StrId::STR_LANDSCAPE_CCW};
@@ -51,13 +54,23 @@ std::string BibleMenuActivity::valueOf(int row) const {
 void BibleMenuActivity::activate(int row) {
   auto& prefs = BIBLE.prefs;
   switch (row) {
-    case GOTO: {
+    case GOTO:
+    case ADD_BOOKMARK:
+    case BOOKMARKS: {
       MenuResult r;
-      r.action = ACTION_GOTO;
+      r.action = row == GOTO ? ACTION_GOTO : row == ADD_BOOKMARK ? ACTION_ADD_BOOKMARK : ACTION_BOOKMARKS;
       setResult(r);
       finish();
       return;
     }
+    case ALIGN:
+      prefs.justify = prefs.justify ? 0 : 1;
+      break;
+    case SMOOTHING:
+      // Off: one display refresh per page instead of two (no grayscale pass).
+      SETTINGS.textAntiAliasing = SETTINGS.textAntiAliasing ? 0 : 1;
+      SETTINGS.saveToFile();
+      break;
     case FONT_SIZE:
       prefs.fontSize = static_cast<uint8_t>((prefs.fontSize + 1) % BibleFonts::COUNT);
       break;
@@ -74,7 +87,6 @@ void BibleMenuActivity::activate(int row) {
       SETTINGS.orientation = static_cast<uint8_t>((SETTINGS.orientation + 1) % CrossPointSettings::ORIENTATION_COUNT);
       SETTINGS.saveToFile();
       ReaderUtils::applyOrientation(renderer, SETTINGS.orientation);
-      firstRender = true;
       break;
     case SETTINGS_ROW:
       activityManager.goToSettings();
@@ -117,15 +129,23 @@ void BibleMenuActivity::render(RenderLock&&) {
   const int hintsHeight = UITheme::getInstance().getMetrics().buttonHintsHeight;
 
   static constexpr StrId labels[ROW_COUNT] = {
-      StrId::STR_BIBLE_GOTO,        StrId::STR_BIBLE_FONT_SIZE, StrId::STR_BIBLE_LINE_SPACING,
-      StrId::STR_BIBLE_LAYOUT,      StrId::STR_BIBLE_HEADINGS,  StrId::STR_ORIENTATION,
-      StrId::STR_SETTINGS_TITLE,
+      StrId::STR_BIBLE_GOTO,      StrId::STR_BIBLE_ADD_BOOKMARK, StrId::STR_BIBLE_BOOKMARKS,
+      StrId::STR_BIBLE_FONT_SIZE, StrId::STR_BIBLE_LINE_SPACING, StrId::STR_BIBLE_ALIGN,
+      StrId::STR_BIBLE_LAYOUT,    StrId::STR_BIBLE_HEADINGS,     StrId::STR_BIBLE_SMOOTHING,
+      StrId::STR_ORIENTATION,     StrId::STR_SETTINGS_TITLE,
   };
 
   const int titleFont = BibleFonts::IDS[3];
-  const int rowFont = BibleFonts::IDS[2];
   const int titleH = renderer.getLineHeight(titleFont) + 16;
   const int available = screenH - top - bottom - hintsHeight - titleH - 10;
+  // Largest font whose rows all fit (landscape has about half the height).
+  int rowFont = BibleFonts::IDS[0];
+  for (int i = 2; i >= 0; i--) {
+    if (renderer.getLineHeight(BibleFonts::IDS[i]) + 8 <= available / ROW_COUNT) {
+      rowFont = BibleFonts::IDS[i];
+      break;
+    }
+  }
   const int rowH = std::min(renderer.getLineHeight(rowFont) + 28, available / ROW_COUNT);
 
   const auto drawAll = [&]() {
@@ -156,6 +176,6 @@ void BibleMenuActivity::render(RenderLock&&) {
   const auto hints =
       mappedInput.mapLabels(tr(STR_BACK), tr(STR_SELECT), tr(STR_BIBLE_HINT_PREV), tr(STR_BIBLE_HINT_NEXT));
   GUI.drawButtonHints(renderer, hints.btn1, hints.btn2, hints.btn3, hints.btn4);
-  renderer.displayBuffer(firstRender ? HalDisplay::HALF_REFRESH : HalDisplay::FAST_REFRESH);
-  firstRender = false;
+  // Differential refresh only: a HALF refresh is three drive phases (three flashes) on the X3.
+  renderer.displayBuffer(HalDisplay::FAST_REFRESH);
 }

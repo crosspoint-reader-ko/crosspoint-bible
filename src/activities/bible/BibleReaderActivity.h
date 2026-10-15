@@ -30,6 +30,7 @@ class BibleReaderActivity final : public Activity {
   bool skipChapter(bool forward);
   void openNavigator();
   void openMenu();
+  void openBookmarks(bool add);
   void rememberPosition();
 
   void drawPage(int top, int left, bool grayPass = false);
@@ -41,10 +42,10 @@ class BibleReaderActivity final : public Activity {
   int page = 0;
   int highlightVerse = 0;  // verse number boxed after a jump, cleared on the next turn
   bool packMissing = false;
+  std::string notice;  // shown once in the header, cleared on the next page turn
 
   int fontId = 0;
   int numberFontId = 0;
-  bool cleanScreenNext = false;
   int lineHeight = 0;
   int pagesUntilFullRefresh = 0;
   bool skipNextInput = false;

@@ -117,3 +117,22 @@ TEST(BibleLayout, HeadingIsNotOrphaned) {
   EXPECT_EQ(l.lines()[l.pageFirstLine(1)].kind, LineKind::Heading);
   EXPECT_EQ(l.pageLastVerse(0), 2);
 }
+
+TEST(BibleLayout, CharWrapFillsLinesAndKeepsPunctuation) {
+  ChapterLayout l;
+  ChapterContent c = chapter(1, "가나 다라마바사 아자.");
+  c.title.clear();
+  LayoutStyle st = style(70, 1000);
+  st.charWrap = true;
+  l.build(c, st);
+  const auto& lines = l.lines();
+  // "1"(12) + " " + "가나"(20) = 42; 70-42-10 = 18 px left: one more character "다".
+  ASSERT_GE(lines.size(), 3u);
+  EXPECT_EQ(lines[0].text, std::string(1, NUM) + "1 가나 다");
+  EXPECT_TRUE(lines[0].justify);
+  // "라마바사" (40) + " " leaves 20 px: "아자" fits, but "." may not start a line, so "자" moves down.
+  EXPECT_EQ(lines[1].text, "라마바사 아");
+  EXPECT_EQ(lines.back().text, "자.");
+  EXPECT_FALSE(lines.back().justify);
+  for (const auto& line : lines) EXPECT_LE(fakeWidth(line.text, false), 70 + 2) << line.text;
+}

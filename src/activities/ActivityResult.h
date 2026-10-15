@@ -19,13 +19,17 @@ struct FilePathResult {
   std::string path;
 };
 
+struct TextResult {
+  std::string text;
+};
+
 struct BibleRefResult {
   uint8_t book = 0;      // 0-based
   uint16_t chapter = 1;  // 1-based
   uint16_t verse = 1;    // 1-based
 };
 
-using ResultVariant = std::variant<std::monostate, MenuResult, IntervalResult, FilePathResult, BibleRefResult>;
+using ResultVariant = std::variant<std::monostate, MenuResult, IntervalResult, FilePathResult, BibleRefResult, TextResult>;
 
 struct ActivityResult {
   bool isCancelled = false;

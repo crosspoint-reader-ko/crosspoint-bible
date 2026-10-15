@@ -39,5 +39,4 @@ class BibleNavigatorActivity final : public Activity {
   int chapter = 1;
   int verse = 1;
   int verseCount = 0;
-  bool firstRender = true;
 };

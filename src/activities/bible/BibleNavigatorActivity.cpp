@@ -32,7 +32,6 @@ void BibleNavigatorActivity::onEnter() {
   chapter = ref.chapter;
   verse = 1;
   step = Step::Book;
-  firstRender = true;
   requestUpdate();
 }
 
@@ -318,6 +317,6 @@ void BibleNavigatorActivity::render(RenderLock&&) {
   const auto labels = mappedInput.mapLabels(step == Step::Book ? tr(STR_CANCEL) : tr(STR_BACK), tr(STR_SELECT),
                                             tr(STR_BIBLE_HINT_PREV), tr(STR_BIBLE_HINT_NEXT));
   GUI.drawButtonHints(renderer, labels.btn1, labels.btn2, labels.btn3, labels.btn4);
-  renderer.displayBuffer(firstRender ? HalDisplay::HALF_REFRESH : HalDisplay::FAST_REFRESH);
-  firstRender = false;
+  // Differential refresh only: a HALF refresh is three drive phases (three flashes) on the X3.
+  renderer.displayBuffer(HalDisplay::FAST_REFRESH);
 }

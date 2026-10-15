@@ -9,6 +9,8 @@
 class BibleMenuActivity final : public Activity {
  public:
   static constexpr int ACTION_GOTO = 1;
+  static constexpr int ACTION_ADD_BOOKMARK = 2;
+  static constexpr int ACTION_BOOKMARKS = 3;
 
   BibleMenuActivity(GfxRenderer& renderer, MappedInputManager& mappedInput)
       : Activity("BibleMenu", renderer, mappedInput) {}
@@ -18,13 +20,25 @@ class BibleMenuActivity final : public Activity {
   void render(RenderLock&& lock) override;
 
  private:
-  enum Row { GOTO, FONT_SIZE, LINE_SPACING, LAYOUT, HEADINGS, ORIENTATION, SETTINGS_ROW, ROW_COUNT };
+  enum Row {
+    GOTO,
+    ADD_BOOKMARK,
+    BOOKMARKS,
+    FONT_SIZE,
+    LINE_SPACING,
+    ALIGN,
+    LAYOUT,
+    HEADINGS,
+    SMOOTHING,
+    ORIENTATION,
+    SETTINGS_ROW,
+    ROW_COUNT
+  };
 
   void activate(int row);
   std::string valueOf(int row) const;
 
   int selected = 0;
-  bool firstRender = true;
   bool prefsChanged = false;
   ButtonNavigator buttonNavigator;
 };

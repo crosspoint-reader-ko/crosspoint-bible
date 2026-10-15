@@ -8,6 +8,7 @@
 
 #include <algorithm>
 
+#include "BibleBookmarksActivity.h"
 #include "BibleMenuActivity.h"
 #include "BibleNavigatorActivity.h"
 #include "CrossPointSettings.h"
@@ -21,6 +22,8 @@
 namespace {
 constexpr unsigned long CHAPTER_HOLD_MS = 700;
 constexpr int SIDE_MARGIN = 18;
+// Space between the header line (book, chapter, verse range) and the text.
+constexpr int HEADER_GAP = 18;
 constexpr float LINE_SPACING[BibleSession::LINE_SPACING_COUNT] = {1.0f, 1.2f, 1.45f};
 
 bool isVerseNumber(const std::string& token) { return !token.empty() && token[0] == bible::VERSE_NUMBER_MARK; }
@@ -30,7 +33,6 @@ void BibleReaderActivity::onEnter() {
   Activity::onEnter();
   ReaderUtils::applyOrientation(renderer, SETTINGS.orientation);
   pagesUntilFullRefresh = SETTINGS.getRefreshFrequency();
-  cleanScreenNext = true;
   if (!BIBLE.ensureOpen()) {
     packMissing = true;
     requestUpdate();
@@ -67,11 +69,12 @@ bool BibleReaderActivity::openChapter(int newBook, int newChapter, int verse) {
 
   bible::LayoutStyle style;
   style.width = renderer.getScreenWidth() - left - right - 2 * SIDE_MARGIN;
-  style.height = renderer.getScreenHeight() - top - bottom - 2 * labelHeight - 12;
+  style.height = renderer.getScreenHeight() - top - bottom - 2 * labelHeight - HEADER_GAP - 8;
   style.lineHeight = lineHeight;
   style.titleLineHeight = lineHeight * 3 / 2;
   style.blockGap = lineHeight / 2;
   style.versePerLine = BIBLE.prefs.versePerLine != 0;
+  style.charWrap = BIBLE.prefs.justify != 0;
   style.spaceWidth = renderer.getSpaceWidth(fontId);
   const int fid = fontId;
   style.measure = [this, fid](const std::string& token, bool bold) {
@@ -109,6 +112,7 @@ void BibleReaderActivity::rememberPosition() {
 
 bool BibleReaderActivity::turnPage(bool forward) {
   highlightVerse = 0;
+  notice.clear();
   if (forward) {
     if (page + 1 < layout.pageCount()) {
       page++;
@@ -131,6 +135,7 @@ bool BibleReaderActivity::turnPage(bool forward) {
 
 bool BibleReaderActivity::skipChapter(bool forward) {
   highlightVerse = 0;
+  notice.clear();
   auto& pack = BIBLE.getPack();
   if (forward) {
     if (chapter < pack.book(book).chapterCount) return openChapter(book, chapter + 1, 1);
@@ -151,9 +156,27 @@ void BibleReaderActivity::openNavigator() {
   startActivityForResult(std::move(nav), [this](const ActivityResult& result) {
     skipNextInput = true;
     ReaderUtils::applyOrientation(renderer, SETTINGS.orientation);
-    cleanScreenNext = true;
     if (result.isCancelled) return;
     if (const auto* ref = std::get_if<BibleRefResult>(&result.data)) {
+      if (openChapter(ref->book, ref->chapter, ref->verse)) highlightVerse = ref->verse > 1 ? ref->verse : 0;
+    }
+  });
+}
+
+void BibleReaderActivity::openBookmarks(bool add) {
+  // The bookmarked verse: the one just jumped to, else the first verse on the page.
+  const uint16_t verse = highlightVerse > 0 ? highlightVerse : std::max<uint16_t>(1, layout.pageFirstVerse(page));
+  const bible::Bookmark here{static_cast<uint8_t>(book), static_cast<uint16_t>(chapter), verse};
+  auto screen = makeUniqueNoThrow<BibleBookmarksActivity>(
+      renderer, mappedInput, add ? BibleBookmarksActivity::Mode::AddTo : BibleBookmarksActivity::Mode::Browse, here);
+  if (!screen) return;
+  startActivityForResult(std::move(screen), [this](const ActivityResult& result) {
+    skipNextInput = true;
+    ReaderUtils::applyOrientation(renderer, SETTINGS.orientation);
+    if (result.isCancelled) return;
+    if (const auto* folderName = std::get_if<TextResult>(&result.data)) {
+      notice = std::string(tr(STR_BIBLE_BOOKMARKED)) + " " + folderName->text;
+    } else if (const auto* ref = std::get_if<BibleRefResult>(&result.data)) {
       if (openChapter(ref->book, ref->chapter, ref->verse)) highlightVerse = ref->verse > 1 ? ref->verse : 0;
     }
   });
@@ -165,14 +188,25 @@ void BibleReaderActivity::openMenu() {
   startActivityForResult(std::move(menu), [this](const ActivityResult& result) {
     skipNextInput = true;
     ReaderUtils::applyOrientation(renderer, SETTINGS.orientation);
-    cleanScreenNext = true;
     if (packMissing) {
       if (BIBLE.ensureOpen()) onEnter();
       return;
     }
     relayout();
     if (const auto* menuResult = std::get_if<MenuResult>(&result.data)) {
-      if (menuResult->action == BibleMenuActivity::ACTION_GOTO) openNavigator();
+      switch (menuResult->action) {
+        case BibleMenuActivity::ACTION_GOTO:
+          openNavigator();
+          break;
+        case BibleMenuActivity::ACTION_ADD_BOOKMARK:
+          openBookmarks(true);
+          break;
+        case BibleMenuActivity::ACTION_BOOKMARKS:
+          openBookmarks(false);
+          break;
+        default:
+          break;
+      }
     }
   });
 }
@@ -224,7 +258,12 @@ void BibleReaderActivity::drawChrome(int top, int left, int width, int bottom) {
 
   const uint16_t first = layout.pageFirstVerse(page);
   const uint16_t last = layout.pageLastVerse(page);
-  if (first > 0) {
+  if (!notice.empty()) {
+    // One-time confirmation (e.g. "북마크 추가: 감사") in place of the verse range.
+    const std::string shown = renderer.truncatedText(labelFont, notice.c_str(), width / 2);
+    const int w = renderer.getTextWidth(labelFont, shown.c_str());
+    renderer.drawText(labelFont, left + width - w, top, shown.c_str(), true, EpdFontFamily::BOLD);
+  } else if (first > 0) {
     std::string range = std::to_string(chapter) + ":" + std::to_string(first);
     if (last > first) range += "-" + std::to_string(last);
     const int w = renderer.getTextWidth(labelFont, range.c_str());
@@ -245,6 +284,7 @@ void BibleReaderActivity::drawPage(int top, int left, bool grayPass) {
   const int first = layout.pageFirstLine(page);
   const int end = layout.pageEndLine(page);
   const int spaceWidth = renderer.getSpaceWidth(fontId);
+  const bool justified = BIBLE.prefs.justify != 0;
   int y = top;
   for (int i = first; i < end; i++) {
     const bible::LayoutLine& line = lines[i];
@@ -261,26 +301,78 @@ void BibleReaderActivity::drawPage(int top, int left, bool grayPass) {
       continue;
     }
 
-    // Ragged right: justified Korean at large sizes opens wide gaps between words.
     const int numberShift = renderer.getFontAscenderSize(fontId) - renderer.getFontAscenderSize(numberFontId);
-    int x = left;
-    for (const auto& t : tokens) {
-      if (isVerseNumber(t)) {
-        const char* num = t.c_str() + 1;
-        const int w = renderer.getTextWidth(numberFontId, num, EpdFontFamily::BOLD);
-        if (highlightVerse > 0 && atoi(num) == highlightVerse) {
-          // The boxed number is pure black and white; the grayscale pass leaves it alone.
-          if (!grayPass) {
-            renderer.fillRoundedRect(x - 4, y + 2, w + 8, lineHeight - 4, 6, Color::Black);
-            renderer.drawText(numberFontId, x, y + numberShift, num, false, EpdFontFamily::BOLD);
-          }
-        } else {
-          renderer.drawText(numberFontId, x, y + numberShift, num, true, EpdFontFamily::BOLD);
+    const auto drawNumber = [&](const char* num, int x, int w) {
+      if (highlightVerse > 0 && atoi(num) == highlightVerse) {
+        // The boxed number is pure black and white; the grayscale pass leaves it alone.
+        if (!grayPass) {
+          renderer.fillRoundedRect(x - 4, y + 2, w + 8, lineHeight - 4, 6, Color::Black);
+          renderer.drawText(numberFontId, x, y + numberShift, num, false, EpdFontFamily::BOLD);
         }
-        x += w + spaceWidth;
       } else {
-        renderer.drawText(fontId, x, y, t.c_str(), true, style);
-        x += renderer.getTextWidth(fontId, t.c_str(), style) + spaceWidth;
+        renderer.drawText(numberFontId, x, y + numberShift, num, true, EpdFontFamily::BOLD);
+      }
+    };
+
+    if (justified && line.justify && line.kind == bible::LineKind::Text) {
+      // Justified: spread the leftover width over every gap between characters (a verse
+      // number counts as one unit). Character wrap keeps the leftover under one character.
+      struct Unit {
+        std::string text;
+        int width;
+        bool number;
+        bool spaceAfter;
+      };
+      std::vector<Unit> units;
+      int natural = 0;
+      for (size_t k = 0; k < tokens.size(); k++) {
+        const std::string& t = tokens[k];
+        const bool last = k + 1 == tokens.size();
+        if (isVerseNumber(t)) {
+          const int w = renderer.getTextWidth(numberFontId, t.c_str() + 1, EpdFontFamily::BOLD);
+          units.push_back({t.substr(1), w, true, !last});
+          natural += w;
+        } else {
+          for (size_t p = 0; p < t.size();) {
+            size_t n = 1;
+            const auto c = static_cast<unsigned char>(t[p]);
+            if (c >= 0xF0) n = 4;
+            else if (c >= 0xE0) n = 3;
+            else if (c >= 0xC0) n = 2;
+            n = std::min(n, t.size() - p);
+            const std::string ch = t.substr(p, n);
+            const int w = renderer.getTextWidth(fontId, ch.c_str(), style);
+            p += n;
+            units.push_back({ch, w, false, p >= t.size() && !last});
+            natural += w;
+          }
+        }
+        if (!last) natural += spaceWidth;
+      }
+      const int gaps = static_cast<int>(units.size()) - 1;
+      const int extra = gaps > 0 ? std::max(0, width - natural) : 0;
+      int x = left;
+      for (int k = 0; k < static_cast<int>(units.size()); k++) {
+        const Unit& u = units[k];
+        if (u.number) {
+          drawNumber(u.text.c_str(), x, u.width);
+        } else {
+          renderer.drawText(fontId, x, y, u.text.c_str(), true, style);
+        }
+        x += u.width + (u.spaceAfter ? spaceWidth : 0);
+        if (k < gaps) x += extra / gaps + (k < extra % gaps ? 1 : 0);
+      }
+    } else {
+      int x = left;
+      for (const auto& t : tokens) {
+        if (isVerseNumber(t)) {
+          const int w = renderer.getTextWidth(numberFontId, t.c_str() + 1, EpdFontFamily::BOLD);
+          drawNumber(t.c_str() + 1, x, w);
+          x += w + spaceWidth;
+        } else {
+          renderer.drawText(fontId, x, y, t.c_str(), true, style);
+          x += renderer.getTextWidth(fontId, t.c_str(), style) + spaceWidth;
+        }
       }
     }
     y += layout.lineAdvance(line);
@@ -296,16 +388,10 @@ void BibleReaderActivity::render(RenderLock&&) {
   const int contentWidth = screenW - left - right - 2 * SIDE_MARGIN;
   const int labelHeight = renderer.getLineHeight(BibleFonts::LABEL_FONT_ID);
   const int chromeTop = top + 4;
-  const int textTop = chromeTop + labelHeight + 6;
+  const int textTop = chromeTop + labelHeight + HEADER_GAP;
   const int chromeBottom = screenH - bottom - 2;
 
   renderer.clearScreen();
-  if (cleanScreenNext) {
-    // Coming from another screen: a full refresh clears what it left in the ink
-    // (and on the X3 it is faster than a half refresh, ~770 ms vs 1720 ms).
-    cleanScreenNext = false;
-    renderer.promoteNextRefresh(HalDisplay::FULL_REFRESH);
-  }
   if (packMissing) {
     const Rect area(contentLeft, top, contentWidth, screenH - top - bottom);
     UITheme::drawCenteredWrappedText(renderer, area, BibleFonts::LABEL_FONT_ID, tr(STR_BIBLE_NO_PACK), 8);
@@ -325,6 +411,10 @@ void BibleReaderActivity::render(RenderLock&&) {
   scope.endScanAndPrewarm();
   drawAll();
 
+  // Returning from the navigator or menu is a page turn like any other: the differential
+  // refresh replaces the whole screen. Forcing a clean refresh there flashed three times on
+  // the X3 (its HALF waveform runs three drive phases); the periodic cleanup every
+  // SETTINGS.getRefreshFrequency() pages handles ghosting.
   if (SETTINGS.textAntiAliasing) {
     ReaderUtils::displayBaseWithRefreshCycle(renderer, pagesUntilFullRefresh);
     ReaderUtils::renderAntiAliased(renderer, [&]() { drawPage(textTop, contentLeft, true); });

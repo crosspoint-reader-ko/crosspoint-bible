@@ -3,6 +3,7 @@
 // The open Bible pack plus the reader's saved position and display preferences.
 // One global instance (BIBLE); activities share it instead of reopening the SD file.
 
+#include <BibleBookmarks.h>
 #include <BibleLayout.h>
 #include <BiblePack.h>
 #include <HalStorage.h>
@@ -25,12 +26,14 @@ struct BiblePrefs {
   uint8_t lineSpacing = 1;   // 0 tight, 1 normal, 2 wide
   uint8_t versePerLine = 1;  // 1 = each verse starts a line, 0 = flowing paragraphs
   uint8_t showHeadings = 1;  // section titles and psalm superscriptions
+  uint8_t justify = 0;       // 0 = left aligned, 1 = justified with character wrap
 };
 
 class BibleSession {
  public:
   static constexpr const char* PACK_DIR = "/bible";
   static constexpr const char* STATE_PATH = "/.crosspoint/bible.bin";
+  static constexpr const char* BOOKMARKS_PATH = "/.crosspoint/bible-bookmarks.txt";
   static constexpr int LINE_SPACING_COUNT = 3;
 
   static constexpr const char* BUILT_IN_PATH = "(built-in)";
@@ -59,9 +62,17 @@ class BibleSession {
   void loadState();
   void saveState();
 
+  // Bookmark folders; loaded on first use, saved after every change.
+  bible::BookmarkStore& bookmarks();
+  void saveBookmarks();
+  // "요한복음 3:16"
+  std::string referenceLabel(const bible::Bookmark& b) const;
+
  private:
   SdByteSource source;
   std::unique_ptr<bible::MemorySource> builtIn;
+  bible::BookmarkStore bookmarkStore;
+  bool bookmarksLoaded = false;
   bible::BiblePack pack;
   std::string path;
 };

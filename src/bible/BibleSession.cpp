@@ -143,13 +143,14 @@ void BibleSession::loadState() {
     prefs.versePerLine = b[12] ? 1 : 0;
     prefs.showHeadings = b[13] ? 1 : 0;
   }
+  if (n >= 15) prefs.justify = b[14] ? 1 : 0;
 }
 
 void BibleSession::saveState() {
   Storage.mkdir("/.crosspoint");
   HalFile f;
   if (!Storage.openFileForWrite("BIBLE", STATE_PATH, f)) return;
-  const uint8_t b[14] = {
+  const uint8_t b[15] = {
       static_cast<uint8_t>(STATE_MAGIC[0]),
       static_cast<uint8_t>(STATE_MAGIC[1]),
       static_cast<uint8_t>(STATE_MAGIC[2]),
@@ -164,7 +165,29 @@ void BibleSession::saveState() {
       prefs.lineSpacing,
       prefs.versePerLine,
       prefs.showHeadings,
+      prefs.justify,
   };
   f.write(b, sizeof(b));
   f.close();
+}
+
+bible::BookmarkStore& BibleSession::bookmarks() {
+  if (!bookmarksLoaded) {
+    bookmarksLoaded = true;
+    const String text = Storage.readFile(BOOKMARKS_PATH);
+    bookmarkStore.parse(std::string(text.c_str(), text.length()));
+    bookmarkStore.ensureDefaultFolder(tr(STR_BIBLE_DEFAULT_FOLDER));
+  }
+  return bookmarkStore;
+}
+
+void BibleSession::saveBookmarks() {
+  Storage.mkdir("/.crosspoint");
+  const std::string text = bookmarkStore.serialize();
+  if (!Storage.writeFile(BOOKMARKS_PATH, String(text.c_str()))) LOG_ERR("BIBLE", "Cannot save bookmarks");
+}
+
+std::string BibleSession::referenceLabel(const bible::Bookmark& b) const {
+  if (b.book >= pack.bookCount()) return "?";
+  return std::string(pack.book(b.book).name) + " " + std::to_string(b.chapter) + ":" + std::to_string(b.verse);
 }

@@ -27,7 +27,7 @@ struct LayoutLine {
   LineKind kind = LineKind::Text;
   uint16_t verseAtStart = 0;  // verse showing at the start of the line (0 before verse 1)
   uint16_t lastVerse = 0;     // last verse touched by the line
-  bool justify = false;       // stretch word gaps to the full width
+  bool justify = false;       // not the last line of its block: may be stretched to the full width
   int16_t gapBefore = 0;      // extra pixels above the line
 };
 
@@ -50,6 +50,8 @@ struct LayoutStyle {
   int titleLineHeight = 0; // chapter title line advance
   int blockGap = 0;        // gap above a heading or a new paragraph
   bool versePerLine = true;
+  // Break lines between any two characters (not only at spaces), for justified text.
+  bool charWrap = false;
   // Width of a token; bold for verse numbers, headings and the title.
   std::function<int(const std::string& token, bool bold)> measure;
   // Width of a verse number (digits only); defaults to measure(digits, true).

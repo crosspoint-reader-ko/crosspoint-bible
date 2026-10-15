@@ -40,6 +40,7 @@ include(GoogleTest)
 
 add_subdirectory(bible_pack)
 add_subdirectory(bible_layout)
+add_subdirectory(bible_input)
 add_subdirectory(differential_rounding)
 add_subdirectory(utf8_compose)
 add_subdirectory(minibidi_arabic)
