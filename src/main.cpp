@@ -53,20 +53,21 @@ constexpr unsigned long X4PRO_POWER_CLICK_MAX_HOLD_MS = 300;
 static bool wakePowerReleasePending = false;
 
 // UI Font (Pretendard 10pt) - Regular only, synthetic bold applied by renderer
-EpdFont pretendard10RegularFont(&pretendard_10_regular);
-EpdFontFamily uiFontFamily(&pretendard10RegularFont);
+EpdFont notoSans10RegularFont(&noto_sans_10_regular);
+EpdFontFamily uiFontFamily(&notoSans10RegularFont);
 
-// Bible reader fonts (KoPub Batang Medium, five sizes) - Regular only, synthetic bold applied by renderer
-EpdFont bible14RegularFont(&bible_14_regular);
-EpdFontFamily bible14FontFamily(&bible14RegularFont);
-EpdFont bible16RegularFont(&bible_16_regular);
-EpdFontFamily bible16FontFamily(&bible16RegularFont);
-EpdFont bible18RegularFont(&bible_18_regular);
-EpdFontFamily bible18FontFamily(&bible18RegularFont);
-EpdFont bible22RegularFont(&bible_22_regular);
-EpdFontFamily bible22FontFamily(&bible22RegularFont);
-EpdFont bible28RegularFont(&bible_28_regular);
-EpdFontFamily bible28FontFamily(&bible28RegularFont);
+// Built-in reader fonts (Noto Serif, five sizes) - Regular only, synthetic bold applied by renderer.
+// Language bundles on the SD card replace them per language (BibleFonts::apply).
+EpdFont notoSerif14RegularFont(&noto_serif_14_regular);
+EpdFontFamily notoSerif14FontFamily(&notoSerif14RegularFont);
+EpdFont notoSerif16RegularFont(&noto_serif_16_regular);
+EpdFontFamily notoSerif16FontFamily(&notoSerif16RegularFont);
+EpdFont notoSerif18RegularFont(&noto_serif_18_regular);
+EpdFontFamily notoSerif18FontFamily(&notoSerif18RegularFont);
+EpdFont notoSerif22RegularFont(&noto_serif_22_regular);
+EpdFontFamily notoSerif22FontFamily(&notoSerif22RegularFont);
+EpdFont notoSerif28RegularFont(&noto_serif_28_regular);
+EpdFontFamily notoSerif28FontFamily(&notoSerif28RegularFont);
 
 // Definitions for SilentRestart.h. RTC_NOINIT survives ESP.restart() but not power loss.
 RTC_NOINIT_ATTR uint32_t silentRebootMagic;
@@ -229,20 +230,20 @@ void setupDisplayAndFonts(bool seamless = false) {
   fontCacheManager.setFontDecompressor(&fontDecompressor);
   renderer.setFontCacheManager(&fontCacheManager);
 
-  // UI font (Pretendard 10pt) - used for all UI sizes in Korean version
+  // UI font (Noto Sans 10pt) for all UI sizes; a language bundle's system font replaces it
   renderer.insertFont(UI_FONT_ID, &uiFontFamily);
   renderer.insertFont(UI_10_FONT_ID, &uiFontFamily);
   renderer.insertFont(UI_12_FONT_ID, &uiFontFamily);
   renderer.insertFont(SMALL_FONT_ID, &uiFontFamily);
 
-  // Bible reader fonts. BIBLE_14 keeps the id the KoPub 14pt reader font had (KOPUB_14_FONT_ID).
-  renderer.insertFont(BIBLE_14_FONT_ID, &bible14FontFamily);
-  renderer.insertFont(BIBLE_16_FONT_ID, &bible16FontFamily);
-  renderer.insertFont(BIBLE_18_FONT_ID, &bible18FontFamily);
-  renderer.insertFont(BIBLE_22_FONT_ID, &bible22FontFamily);
-  renderer.insertFont(BIBLE_28_FONT_ID, &bible28FontFamily);
+  // Reader font slots start on the built-in Noto Serif; the saved language may switch them
+  // to its SD fonts below.
+  static const EpdFontFamily* const notoSerif[BibleFonts::COUNT] = {
+      &notoSerif14FontFamily, &notoSerif16FontFamily, &notoSerif18FontFamily, &notoSerif22FontFamily,
+      &notoSerif28FontFamily};
+  BibleFonts::registerBuiltIns(renderer, notoSerif);
 
-  // Set fallback font to Pretendard UI
+  // Unknown font ids fall back to the UI font
   renderer.setFallbackFont(UI_FONT_ID);
 
   LOG_DBG("MAIN", "Fonts setup complete");
@@ -394,6 +395,8 @@ void setup() {
   bool needsWakeRefresh = false;
 
   setupDisplayAndFonts(resume != BootResume::Splash);
+  // The saved language picks the UI language and the reader/UI fonts (SD bundle or built-in).
+  BIBLE.applyLanguage(renderer);
 
   switch (resume) {
     case BootResume::Silent:

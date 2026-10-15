@@ -1,0 +1,19 @@
+{
+ "fonts": [
+  {
+   "file": "NotoSerifMalayalam-Regular.ttf",
+   "family": "Noto Serif Malayalam Regular",
+   "version": "Version 2.104",
+   "glyphs": 687,
+   "glyph_order_sha256": "bbb3cfffaabbecfcf2d45b821d6631afb182f35b46d5e210ff3c6bc4e65714af"
+  },
+  {
+   "file": "NotoSerifHebrew-Regular.ttf",
+   "family": "Noto Serif Hebrew Regular",
+   "version": "Version 2.004",
+   "glyphs": 472,
+   "glyph_order_sha256": "b9d60f75d02a0aea38953863a19d1b49b6797e0ac245da0a483948fc66f28eeb"
+  }
+ ],
+ "clusters": 1337
+}

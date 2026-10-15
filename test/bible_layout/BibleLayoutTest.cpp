@@ -136,3 +136,196 @@ TEST(BibleLayout, CharWrapFillsLinesAndKeepsPunctuation) {
   EXPECT_FALSE(lines.back().justify);
   for (const auto& line : lines) EXPECT_LE(fakeWidth(line.text, false), 70 + 2) << line.text;
 }
+
+namespace {
+
+// Fake hyphenation: "righteousness" -> right|eous|ness, "everlasting" -> ever|last|ing.
+std::vector<size_t> fakeHyphenate(const std::string& word) {
+  if (word == "righteousness") return {5, 9};
+  if (word == "everlasting") return {4, 8};
+  if (word == "well-known") return {5};
+  return {};
+}
+
+std::string num(int n) { return std::string(1, NUM) + std::to_string(n); }
+
+}  // namespace
+
+TEST(BibleLayout, HyphenatesWordThatDoesNotFit) {
+  ChapterLayout l;
+  ChapterContent c = chapter(1, "in righteousness");
+  c.title.clear();
+  // "1"(12) + " in"(30) = 42; at width 120, 120-42-10 = 68 left: "righteous-" (100) no, "right-" (60) yes.
+  LayoutStyle st = style(120, 1000);
+  st.hyphenate = fakeHyphenate;
+  l.build(c, st);
+  const auto& lines = l.lines();
+  ASSERT_EQ(lines.size(), 2u);
+  EXPECT_EQ(lines[0].text, num(1) + " in right-");
+  EXPECT_TRUE(lines[0].justify);
+  EXPECT_EQ(lines[1].text, "eousness");
+  EXPECT_FALSE(lines[1].justify);
+  EXPECT_EQ(lines[1].verseAtStart, 1);
+  for (const auto& line : lines) EXPECT_LE(fakeWidth(line.text, false), 120) << line.text;
+}
+
+TEST(BibleLayout, HyphenationPicksLargestFittingPoint) {
+  ChapterLayout l;
+  ChapterContent c = chapter(1, "in righteousness");
+  c.title.clear();
+  // 160-52 = 108 left: "righteous-" (100) fits, "righteousness" (130) does not.
+  LayoutStyle st = style(160, 1000);
+  st.hyphenate = fakeHyphenate;
+  l.build(c, st);
+  ASSERT_EQ(l.lines().size(), 2u);
+  EXPECT_EQ(l.lines()[0].text, num(1) + " in righteous-");
+  EXPECT_EQ(l.lines()[1].text, "ness");
+}
+
+TEST(BibleLayout, NoHyphenationWithoutCallbackOrWhenNothingFits) {
+  ChapterContent c = chapter(1, "in righteousness");
+  c.title.clear();
+  ChapterLayout l;
+  l.build(c, style(140, 1000));  // no hyphenate: plain word wrap (88 px left, word is 130)
+  ASSERT_EQ(l.lines().size(), 2u);
+  EXPECT_EQ(l.lines()[0].text, num(1) + " in");
+  EXPECT_EQ(l.lines()[1].text, "righteousness");
+
+  // 48 px left at width 100 ("right-" is 60), so the word wraps whole. It is still wider than the line
+  // (130 > 100), so the new line hyphenates it at the largest point that fits: "righteous-" (100).
+  LayoutStyle st = style(100, 1000);
+  st.hyphenate = fakeHyphenate;
+  l.build(c, st);
+  ASSERT_EQ(l.lines().size(), 3u);
+  EXPECT_EQ(l.lines()[0].text, num(1) + " in");
+  EXPECT_EQ(l.lines()[1].text, "righteous-");
+  EXPECT_EQ(l.lines()[2].text, "ness");
+
+  ChapterContent fits = chapter(1, "into everlasting");  // 110 px: fits a whole line, wraps unbroken
+  fits.title.clear();
+  st = style(110, 1000);
+  st.hyphenate = fakeHyphenate;
+  // "1 into" = 62; 110-62-10 = 38 px left: "ever-" (50) does not fit.
+  l.build(fits, st);
+  ASSERT_EQ(l.lines().size(), 2u);
+  EXPECT_EQ(l.lines()[0].text, num(1) + " into");
+  EXPECT_EQ(l.lines()[1].text, "everlasting");
+}
+
+TEST(BibleLayout, HyphenatesWordWiderThanLine) {
+  ChapterLayout l;
+  ChapterContent c = chapter(1, "everlasting");
+  c.title.clear();
+  LayoutStyle st = style(60, 1000, false);
+  st.hyphenate = fakeHyphenate;
+  // Line 1: "1" then 60-12-10 = 38 px left: no prefix fits, so the word starts line 2 and splits at its
+  // hyphenation points: "ever-" (50), "last-" (50), "ing".
+  l.build(c, st);
+  const auto& lines = l.lines();
+  ASSERT_EQ(lines.size(), 4u);
+  EXPECT_EQ(lines[0].text, num(1));
+  EXPECT_EQ(lines[1].text, "ever-");
+  EXPECT_EQ(lines[2].text, "last-");
+  EXPECT_EQ(lines[3].text, "ing");
+  for (const auto& line : lines) EXPECT_LE(fakeWidth(line.text, false), 60) << line.text;
+}
+
+TEST(BibleLayout, HyphenationFallsBackToHardBreak) {
+  ChapterLayout l;
+  ChapterContent c = chapter(1, "righteousness");
+  c.title.clear();
+  LayoutStyle st = style(40, 1000);  // even "right-" (60) is wider than the line
+  st.hyphenate = fakeHyphenate;
+  l.build(c, st);
+  for (const auto& line : l.lines()) EXPECT_LE(fakeWidth(line.text, false), 40) << line.text;
+  std::string joined;
+  for (size_t i = 1; i < l.lines().size(); i++) joined += l.lines()[i].text;
+  EXPECT_EQ(joined, "righteousness");
+}
+
+TEST(BibleLayout, NoDoubleHyphenAndNumbersNeverHyphenated) {
+  ChapterLayout l;
+  ChapterContent c = chapter(1, "a well-known");
+  c.title.clear();
+  // "1 a" = 32; at width 100, 100-32-10 = 58 left: "well-" (50) fits and gets no second hyphen.
+  LayoutStyle st = style(100, 1000);
+  st.hyphenate = [](const std::string& w) -> std::vector<size_t> {
+    if (!w.empty() && w[0] == VERSE_NUMBER_MARK) ADD_FAILURE() << "verse number passed to hyphenate";
+    return fakeHyphenate(w);
+  };
+  l.build(c, st);
+  ASSERT_EQ(l.lines().size(), 2u);
+  EXPECT_EQ(l.lines()[0].text, num(1) + " a well-");
+  EXPECT_EQ(l.lines()[1].text, "known");
+}
+
+TEST(BibleLayout, CharWrapIgnoresHyphenation) {
+  ChapterLayout l;
+  ChapterContent c = chapter(1, "가나 다라마바사 아자.");
+  c.title.clear();
+  LayoutStyle st = style(70, 1000);
+  st.charWrap = true;
+  st.hyphenate = [](const std::string&) -> std::vector<size_t> {
+    ADD_FAILURE() << "hyphenate called with charWrap";
+    return {};
+  };
+  l.build(c, st);
+  EXPECT_EQ(l.lines()[0].text, num(1) + " 가나 다");
+}
+
+TEST(BibleLayout, RtlFlagPropagatesWithoutReordering) {
+  ChapterLayout l;
+  ChapterContent c = chapter(2, "שלום עולם");
+  LayoutStyle st = style(1000, 1000);
+  st.rtl = true;
+  l.build(c, st);
+  const auto& lines = l.lines();
+  ASSERT_EQ(lines.size(), 3u);
+  for (const auto& line : lines) EXPECT_TRUE(line.rtl);
+  // Logical order: the verse number comes first (drawn rightmost by the renderer).
+  EXPECT_EQ(lines[1].text, num(1) + " שלום עולם");
+
+  st.rtl = false;
+  l.build(c, st);
+  for (const auto& line : l.lines()) EXPECT_FALSE(line.rtl);
+}
+
+TEST(BibleLayout, CjkCharWrapSetsSpreadHint) {
+  ChapterLayout l;
+  // Chinese: no spaces in the verse text.
+  ChapterContent c = chapter(1, "起初神创造天地地是空虚混沌渊面黑暗");
+  c.title.clear();
+  LayoutStyle st = style(100, 1000);
+  st.charWrap = true;
+  l.build(c, st);
+  const auto& lines = l.lines();
+  ASSERT_GE(lines.size(), 2u);
+  for (const auto& line : lines) {
+    EXPECT_TRUE(line.spreadChars) << line.text;
+    EXPECT_LE(fakeWidth(line.text, false), 100 + 2) << line.text;
+  }
+  EXPECT_TRUE(lines[0].justify);
+  EXPECT_FALSE(lines.back().justify);
+}
+
+TEST(BibleLayout, SpreadHintOffForSpacedOrWordWrappedText) {
+  ChapterLayout l;
+  ChapterContent c = chapter(1, "가 나 다 라 마 바 사 아");  // Korean: spaces between words
+  c.title.clear();
+  LayoutStyle st = style(1000, 1000);
+  st.charWrap = true;
+  l.build(c, st);
+  ASSERT_EQ(l.lines().size(), 1u);
+  EXPECT_FALSE(l.lines()[0].spreadChars);
+
+  ChapterContent zh = chapter(1, "起初神创造天地");
+  zh.title = "第一章";
+  st.charWrap = false;  // word wrap never sets the hint
+  l.build(zh, st);
+  for (const auto& line : l.lines()) EXPECT_FALSE(line.spreadChars);
+
+  st.charWrap = true;  // headings and the title never spread
+  l.build(zh, st);
+  EXPECT_FALSE(l.lines()[0].spreadChars);
+  EXPECT_TRUE(l.lines()[1].spreadChars);
+}

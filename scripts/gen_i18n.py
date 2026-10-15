@@ -492,6 +492,13 @@ def generate_keys_header(
     lines.append("  _COUNT")
     lines.append("};")
     lines.append("")
+    # CrossPoint Bible matches a language to its SD bundle (/bible/lang/<tag>/) by this tag.
+    lines.append("// BCP 47 tag per Language value (the _bcp47 field)")
+    lines.append("inline constexpr const char* LANGUAGE_BCP47[] = {")
+    for bcp47 in language_bcp47:
+        lines.append(f'    "{bcp47}",')
+    lines.append("};")
+    lines.append("")
 
     # Extern declarations
     lines.append("// Language codes (defined in I18nStrings.cpp)")

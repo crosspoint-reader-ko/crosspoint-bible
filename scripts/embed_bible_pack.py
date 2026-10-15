@@ -8,9 +8,9 @@ Source lookup, first match wins:
   1. $BIBLE_EPUB (an EPUB or getBible JSON, converted here)
   2. custom_bible_epub in the env (e.g. in platformio.local.ini)
   3. $BIBLE_PACK (a ready .cpb)
-  4. the first .epub in iCloud Drive Books/_성경 (a maintainer's personal copy)
-  5. data/bible/krv1961.cpb: 개역한글 (1952/1961, public domain), what CI and
-     releases build with
+  4. data/bible/otb-en.cpb: the English Open Translation Bible (CC BY-SA 4.0), the
+     default language; what CI and releases build with
+Other languages (개역한글 included) are SD card bundles (docs/languages.md).
 Set BIBLE_EMBED=0 to build without a pack (the reader then needs a .cpb in
 /bible on the SD card).
 
@@ -32,7 +32,7 @@ asm = os.path.join(project, "src", "bible", "generated", "EmbeddedPack.cpp")
 old_asm = os.path.join(project, "src", "bible", "generated", "EmbeddedPack.S")
 
 
-REPO_PACK = os.path.join(project, "data", "bible", "krv1961.cpb")
+REPO_PACK = os.path.join(project, "data", "bible", "otb-en.cpb")
 
 
 def find_source():
@@ -43,10 +43,6 @@ def find_source():
     except Exception:
         pass
     candidates.append((os.environ.get("BIBLE_PACK", ""), True))
-    candidates += [
-        (p, False)
-        for p in sorted(glob.glob(os.path.expanduser("~/Library/Mobile Documents/com~apple~CloudDocs/Books/_성경/*.epub")))
-    ]
     candidates.append((REPO_PACK, True))
     return next(((p, ready) for p, ready in candidates if p and os.path.isfile(p)), (None, False))
 

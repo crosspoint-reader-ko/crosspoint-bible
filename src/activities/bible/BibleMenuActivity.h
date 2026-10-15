@@ -1,6 +1,9 @@
 #pragma once
 
 #include "activities/Activity.h"
+#include <string>
+#include <vector>
+
 #include "util/ButtonNavigator.h"
 
 // Reader menu: go to a reference, and the reading preferences (font size,
@@ -24,6 +27,9 @@ class BibleMenuActivity final : public Activity {
     GOTO,
     ADD_BOOKMARK,
     BOOKMARKS,
+    LANGUAGE,
+    BIBLE_CHOICE,  // only when the language has more than one Bible
+    FONT_FAMILY,   // only when the language has more than one reader font
     FONT_SIZE,
     LINE_SPACING,
     LAYOUT,
@@ -37,8 +43,10 @@ class BibleMenuActivity final : public Activity {
 
   void activate(int row);
   std::string valueOf(int row) const;
+  void buildRows();
 
-  int selected = 0;
+  std::vector<int> rows;  // visible Row values, in order
+  int selected = 0;       // index into rows
   bool prefsChanged = false;
   ButtonNavigator buttonNavigator;
 };

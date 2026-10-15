@@ -1,0 +1,6 @@
+{
+  "name": "Hyphenation",
+  "build": {
+    "srcFilter": ["+<*>"]
+  }
+}

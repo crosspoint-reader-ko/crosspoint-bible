@@ -1,0 +1,19 @@
+{
+ "fonts": [
+  {
+   "file": "NotoSerifDevanagari-Regular.ttf",
+   "family": "Noto Serif Devanagari Regular",
+   "version": "Version 2.006",
+   "glyphs": 1269,
+   "glyph_order_sha256": "d6a40e3296bbfba1d2694beb0e1e42ae0dde6acb23b5a64e5b1509ddffd0ca31"
+  },
+  {
+   "file": "NotoSerifHebrew-Regular.ttf",
+   "family": "Noto Serif Hebrew Regular",
+   "version": "Version 2.004",
+   "glyphs": 472,
+   "glyph_order_sha256": "b9d60f75d02a0aea38953863a19d1b49b6797e0ac245da0a483948fc66f28eeb"
+  }
+ ],
+ "clusters": 1241
+}

@@ -1,0 +1,12 @@
+{
+ "fonts": [
+  {
+   "file": "NotoSansMalayalam-Regular.ttf",
+   "family": "Noto Sans Malayalam Regular",
+   "version": "Version 2.104",
+   "glyphs": 697,
+   "glyph_order_sha256": "3fa1e8745d0fd6bbe7759690014c9695ad6b9f9f54e2e19832dbf03d6bfcae5f"
+  }
+ ],
+ "clusters": 133
+}

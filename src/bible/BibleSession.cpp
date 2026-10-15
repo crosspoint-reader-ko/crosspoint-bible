@@ -9,6 +9,7 @@
 #include <vector>
 
 #include "BibleFonts.h"
+#include "CrossPointSettings.h"
 
 BibleSession BIBLE;
 
@@ -42,38 +43,181 @@ bool SdByteSource::readAt(uint32_t offset, void* dst, uint32_t length) {
   return file.read(dst, length) == static_cast<int>(length);
 }
 
-bool BibleSession::ensureOpen() {
-  if (pack.isOpen()) return true;
-  std::vector<std::string> candidates;
-  for (const auto& name : Storage.listFiles(PACK_DIR, 50)) {
-    const std::string n = name.c_str();
-    if (!n.empty() && n[0] != '.' && endsWithCpb(n)) candidates.push_back(n);
+namespace {
+// Reads a pack's title and metadata without keeping it open.
+bool peekPack(bible::ByteSource& src, std::string& title, std::string& lang, std::string& langName) {
+  bible::BiblePack p;
+  if (!p.open(&src)) return false;
+  title = p.title();
+  lang = p.language();
+  for (const auto& [k, v] : p.metadata()) {
+    if (k == "language_name") langName = v;
   }
-  std::sort(candidates.begin(), candidates.end());
-  for (const auto& n : candidates) {
-    const std::string p = std::string(PACK_DIR) + "/" + n;
-    if (source.open(p) && pack.open(&source)) {
-      path = p;
-      position = pack.clamp(position);
-      LOG_INF("BIBLE", "Opened %s (%s, %u verses)", p.c_str(), pack.title().c_str(),
-              static_cast<unsigned>(pack.totalVerses()));
-      return true;
+  return true;
+}
+
+std::vector<std::string> listNames(const char* dir) {
+  std::vector<std::string> out;
+  for (const auto& n : Storage.listFiles(dir, 100)) {
+    std::string name = n.c_str();
+    const size_t slash = name.find_last_of('/');
+    if (slash != std::string::npos) name = name.substr(slash + 1);
+    if (!name.empty() && name[0] != '.') out.push_back(name);
+  }
+  std::sort(out.begin(), out.end());
+  return out;
+}
+}  // namespace
+
+void BibleSession::rescanLanguages() {
+  langs.clear();
+  langsScanned = true;
+  const auto languageFor = [this](const std::string& code) -> LanguageInfo& {
+    for (auto& l : langs) {
+      if (l.code == code) return l;
     }
-    LOG_ERR("BIBLE", "Not a Bible pack: %s", p.c_str());
-    source.close();
-  }
+    langs.push_back(LanguageInfo{});
+    langs.back().code = code;
+    return langs.back();
+  };
+  const auto addBible = [&](const std::string& code, const std::string& name, BibleChoice choice) {
+    LanguageInfo& l = languageFor(code.empty() ? "en" : code);
+    if (l.name.empty()) l.name = name;
+    l.bibles.push_back(std::move(choice));
+  };
+
+  // Built-in pack.
   const auto size = static_cast<uint32_t>(bible_pack_end - bible_pack_start);
   if (size > 0) {
-    builtIn = std::make_unique<bible::MemorySource>(bible_pack_start, size);
-    if (pack.open(builtIn.get())) {
-      path = BUILT_IN_PATH;
-      position = pack.clamp(position);
-      LOG_INF("BIBLE", "Opened built-in pack (%s, %u verses)", pack.title().c_str(),
-              static_cast<unsigned>(pack.totalVerses()));
-      return true;
+    bible::MemorySource mem(bible_pack_start, size);
+    std::string title, lang, langName;
+    if (peekPack(mem, title, lang, langName)) addBible(lang, langName, {BUILT_IN_PATH, title});
+  }
+  // /bible/lang/<code>/*.cpb
+  for (const auto& code : listNames(LANG_DIR)) {
+    const std::string dir = std::string(LANG_DIR) + "/" + code;
+    for (const auto& f : listNames(dir.c_str())) {
+      if (!endsWithCpb(f)) continue;
+      SdByteSource src;
+      std::string title, lang, langName;
+      const std::string p = dir + "/" + f;
+      if (src.open(p) && peekPack(src, title, lang, langName)) addBible(code, langName, {p, title});
+      src.close();
     }
-    LOG_ERR("BIBLE", "Built-in pack is not readable");
+  }
+  // Legacy: /bible/*.cpb joins its own language.
+  for (const auto& f : listNames(PACK_DIR)) {
+    if (!endsWithCpb(f)) continue;
+    SdByteSource src;
+    std::string title, lang, langName;
+    const std::string p = std::string(PACK_DIR) + "/" + f;
+    if (src.open(p) && peekPack(src, title, lang, langName)) addBible(lang, langName, {p, title});
+    src.close();
+  }
+  // Fonts: /bible/fonts/<code>/<family>/ and /bible/fonts/<code>/ui/
+  for (auto& l : langs) {
+    const std::string dir = std::string(FONT_DIR) + "/" + l.code;
+    for (const auto& family : listNames(dir.c_str())) {
+      if (family == "ui") {
+        l.hasUiFont = true;
+      } else if (family != "LICENSES" && family.find('.') == std::string::npos) {
+        l.fontFamilies.push_back(family);
+      }
+    }
+    if (l.name.empty()) l.name = l.code;
+  }
+  // English (built-in fonts and UI) first, then by code.
+  std::sort(langs.begin(), langs.end(), [](const LanguageInfo& a, const LanguageInfo& b) {
+    if ((a.code == "en") != (b.code == "en")) return a.code == "en";
+    return a.code < b.code;
+  });
+  LOG_INF("BIBLE", "%u languages", static_cast<unsigned>(langs.size()));
+}
+
+const std::vector<LanguageInfo>& BibleSession::languages() {
+  if (!langsScanned) rescanLanguages();
+  return langs;
+}
+
+const LanguageInfo* BibleSession::currentLanguage() {
+  for (const auto& l : languages()) {
+    if (l.code == langCode) return &l;
+  }
+  return languages().empty() ? nullptr : &languages().front();
+}
+
+bool BibleSession::setLanguage(const std::string& code) {
+  for (const auto& l : languages()) {
+    if (l.code != code) continue;
+    langCode = code;
+    close();
+    saveLanguageState();
+    return true;
+  }
+  return false;
+}
+
+void BibleSession::setBible(const std::string& p) {
+  bibleChoice[langCode] = p;
+  close();
+  saveLanguageState();
+}
+
+void BibleSession::setFontFamily(const std::string& family) {
+  fontChoice[langCode] = family;
+  saveLanguageState();
+}
+
+void BibleSession::applyLanguage(GfxRenderer& renderer) {
+  const LanguageInfo* lang = currentLanguage();
+  if (lang) langCode = lang->code;
+  BibleFonts::apply(renderer, lang, fontChoice[langCode]);
+  Language ui = I18n::languageFromBcp47(langCode.c_str());
+  if (ui == Language::_COUNT) ui = Language::EN;  // no translation: English UI
+  I18N.setLanguage(ui);
+  SETTINGS.language = static_cast<uint8_t>(ui);
+}
+
+std::string BibleSession::meta(const char* key) const {
+  for (const auto& [k, v] : pack.metadata()) {
+    if (k == key) return v;
+  }
+  return "";
+}
+
+bool BibleSession::openPath(const std::string& p) {
+  if (p == BUILT_IN_PATH) {
+    const auto size = static_cast<uint32_t>(bible_pack_end - bible_pack_start);
+    if (size == 0) return false;
+    builtIn = std::make_unique<bible::MemorySource>(bible_pack_start, size);
+    if (pack.open(builtIn.get())) return true;
     builtIn.reset();
+    return false;
+  }
+  if (source.open(p) && pack.open(&source)) return true;
+  source.close();
+  return false;
+}
+
+bool BibleSession::ensureOpen() {
+  if (pack.isOpen()) return true;
+  const LanguageInfo* lang = currentLanguage();
+  if (!lang) return false;
+  if (lang->code != langCode) langCode = lang->code;  // saved language no longer installed
+  std::vector<std::string> order;
+  const std::string& chosen = bibleChoice[langCode];
+  if (!chosen.empty()) order.push_back(chosen);
+  for (const auto& b : lang->bibles) order.push_back(b.path);
+  for (const auto& p : order) {
+    if (!openPath(p)) {
+      LOG_ERR("BIBLE", "Not a Bible pack: %s", p.c_str());
+      continue;
+    }
+    path = p;
+    position = pack.clamp(position);
+    LOG_INF("BIBLE", "Opened %s (%s, %s, %u verses)", p.c_str(), pack.title().c_str(), langCode.c_str(),
+            static_cast<unsigned>(pack.totalVerses()));
+    return true;
   }
   return false;
 }
@@ -127,7 +271,32 @@ std::string BibleSession::chapterLabel(int book, int chapter) const {
   return std::string(pack.book(book).name) + " " + chapterTitle(book, chapter);
 }
 
+static void loadLanguageLines(const String& text, std::string& langCode, std::map<std::string, std::string>& bibles,
+                              std::map<std::string, std::string>& fonts) {
+  std::string all(text.c_str(), text.length());
+  size_t pos = 0;
+  while (pos < all.size()) {
+    size_t end = all.find('\n', pos);
+    if (end == std::string::npos) end = all.size();
+    const std::string line = all.substr(pos, end - pos);
+    pos = end + 1;
+    const size_t t1 = line.find('\t');
+    if (t1 == std::string::npos) continue;
+    const std::string key = line.substr(0, t1);
+    if (key == "lang") {
+      langCode = line.substr(t1 + 1);
+      continue;
+    }
+    const size_t t2 = line.find('\t', t1 + 1);
+    if (t2 == std::string::npos) continue;
+    const std::string code = line.substr(t1 + 1, t2 - t1 - 1);
+    if (key == "bible") bibles[code] = line.substr(t2 + 1);
+    if (key == "font") fonts[code] = line.substr(t2 + 1);
+  }
+}
+
 void BibleSession::loadState() {
+  loadLanguageLines(Storage.readFile(LANG_STATE_PATH), langCode, bibleChoice, fontChoice);
   HalFile f;
   if (!Storage.openFileForRead("BIBLE", STATE_PATH, f)) return;
   uint8_t b[16] = {};
@@ -190,4 +359,16 @@ void BibleSession::saveBookmarks() {
 std::string BibleSession::referenceLabel(const bible::Bookmark& b) const {
   if (b.book >= pack.bookCount()) return "?";
   return std::string(pack.book(b.book).name) + " " + std::to_string(b.chapter) + ":" + std::to_string(b.verse);
+}
+
+void BibleSession::saveLanguageState() {
+  Storage.mkdir("/.crosspoint");
+  std::string text = "lang\t" + langCode + "\n";
+  for (const auto& [code, p] : bibleChoice) {
+    if (!p.empty()) text += "bible\t" + code + "\t" + p + "\n";
+  }
+  for (const auto& [code, f] : fontChoice) {
+    if (!f.empty()) text += "font\t" + code + "\t" + f + "\n";
+  }
+  Storage.writeFile(LANG_STATE_PATH, String(text.c_str()));
 }

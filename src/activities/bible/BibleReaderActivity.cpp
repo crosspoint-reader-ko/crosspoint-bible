@@ -2,6 +2,7 @@
 
 #include <FontCacheManager.h>
 #include <GfxRenderer.h>
+#include <Hyphenation.h>
 #include <I18n.h>
 #include <Logging.h>
 #include <Memory.h>
@@ -74,7 +75,18 @@ bool BibleReaderActivity::openChapter(int newBook, int newChapter, int verse) {
   style.titleLineHeight = lineHeight * 3 / 2;
   style.blockGap = lineHeight / 2;
   style.versePerLine = BIBLE.prefs.versePerLine != 0;
-  style.charWrap = BIBLE.prefs.justify != 0;
+  // Per-language line breaking (pack metadata, docs/languages.md): character wrap for
+  // Korean when justified and always for Chinese/Japanese (no spaces); word wrap with
+  // hyphenation where the firmware has patterns; right-to-left lines for Arabic, Persian, Hebrew.
+  const std::string lang = BIBLE.getPack().language();
+  const bool cjk = lang == "ja" || lang == "zh";
+  style.charWrap = cjk || (BIBLE.meta("wrap") == "char" || lang == "ko") && BIBLE.prefs.justify != 0;
+  style.rtl = BIBLE.meta("direction") == "rtl";
+  std::string hyph = BIBLE.meta("hyphenation");
+  if (hyph.empty() && lang == "en") hyph = "en";
+  if (!style.charWrap && !hyph.empty() && hyphenation::hasLanguage(hyph.c_str())) {
+    style.hyphenate = [hyph](const std::string& word) { return hyphenation::breakPoints(hyph.c_str(), word); };
+  }
   style.spaceWidth = renderer.getSpaceWidth(fontId);
   const int fid = fontId;
   // Pen advances, not ink widths: drawText starts each word at the pen position, so the
@@ -194,6 +206,15 @@ void BibleReaderActivity::openMenu() {
       if (BIBLE.ensureOpen()) onEnter();
       return;
     }
+    // A language or Bible switch in the menu closed the pack: open the new one.
+    if (!BIBLE.isOpen() && !BIBLE.ensureOpen()) {
+      packMissing = true;
+      return;
+    }
+    const bible::Ref pos = BIBLE.getPack().clamp(bible::Ref{static_cast<uint8_t>(book), static_cast<uint16_t>(chapter),
+                                                            layout.pageFirstVerse(page)});
+    book = pos.book;
+    chapter = pos.chapter;
     relayout();
     if (const auto* menuResult = std::get_if<MenuResult>(&result.data)) {
       switch (menuResult->action) {
@@ -316,32 +337,64 @@ void BibleReaderActivity::drawPage(int top, int left, bool grayPass) {
       }
     };
 
-    // Word widths are pen advances, as measured by the layout. Letter spacing stays the
-    // font's own; justified lines widen only the spaces, spreading the leftover evenly.
-    std::vector<int> widths;
-    widths.reserve(tokens.size());
+    // Units are drawn left to right (right to left on RTL lines). Widths are pen advances, as
+    // the layout measured them. Letter spacing stays the font's own: justified lines widen the
+    // spaces only, except CJK lines (spreadChars), which have few spaces and widen every gap
+    // between characters.
+    struct Unit {
+      std::string text;
+      int width;
+      bool number;
+      bool spaceAfter;
+    };
+    const bool spread = justified && line.justify && line.spreadChars;
+    std::vector<Unit> units;
     int natural = 0;
-    for (const auto& t : tokens) {
-      const int w = isVerseNumber(t) ? renderer.getTextAdvanceX(numberFontId, t.c_str() + 1, EpdFontFamily::BOLD)
-                                     : renderer.getTextAdvanceX(fontId, t.c_str(), style);
-      widths.push_back(w);
-      natural += w;
+    for (size_t k = 0; k < tokens.size(); k++) {
+      const std::string& t = tokens[k];
+      const bool last = k + 1 == tokens.size();
+      if (isVerseNumber(t)) {
+        units.push_back({t.substr(1), renderer.getTextAdvanceX(numberFontId, t.c_str() + 1, EpdFontFamily::BOLD),
+                         true, !last});
+      } else if (spread) {
+        for (size_t p = 0; p < t.size();) {
+          const auto c = static_cast<unsigned char>(t[p]);
+          size_t n = c >= 0xF0 ? 4 : c >= 0xE0 ? 3 : c >= 0xC0 ? 2 : 1;
+          n = std::min(n, t.size() - p);
+          std::string ch = t.substr(p, n);
+          const int w = renderer.getTextAdvanceX(fontId, ch.c_str(), style);
+          p += n;
+          units.push_back({std::move(ch), w, false, p >= t.size() && !last});
+        }
+      } else {
+        units.push_back({t, renderer.getTextAdvanceX(fontId, t.c_str(), style), false, !last});
+      }
+      natural += units.back().width;
+      if (!last) natural += spaceWidth;
     }
-    const int gaps = static_cast<int>(tokens.size()) - 1;
+    const int unitCount = static_cast<int>(units.size());
+    const int gaps = spread ? unitCount - 1 : static_cast<int>(tokens.size()) - 1;
     int extra = 0;
     if (justified && line.justify && line.kind == bible::LineKind::Text && gaps > 0) {
-      extra = std::max(0, width - natural - gaps * spaceWidth);
+      extra = std::max(0, width - natural);
     }
-    int x = left;
-    for (int k = 0; k < static_cast<int>(tokens.size()); k++) {
-      const std::string& t = tokens[k];
-      if (isVerseNumber(t)) {
-        drawNumber(t.c_str() + 1, x, widths[k]);
+    int gapIndex = 0;
+    int pos = 0;  // distance travelled from the line start edge
+    for (int k = 0; k < unitCount; k++) {
+      const Unit& u = units[k];
+      const int x = line.rtl ? left + width - pos - u.width : left + pos;
+      if (u.number) {
+        drawNumber(u.text.c_str(), x, u.width);
       } else {
-        renderer.drawText(fontId, x, y, t.c_str(), true, style);
+        renderer.drawText(fontId, x, y, u.text.c_str(), true, style);
       }
-      x += widths[k] + spaceWidth;
-      if (k < gaps && extra > 0) x += extra / gaps + (k < extra % gaps ? 1 : 0);
+      pos += u.width + (u.spaceAfter ? spaceWidth : 0);
+      // One share of the leftover per stretchable gap: after every unit when spreading,
+      // after a space otherwise.
+      if (k + 1 < unitCount && extra > 0 && (spread || u.spaceAfter)) {
+        pos += extra / gaps + (gapIndex < extra % gaps ? 1 : 0);
+        gapIndex++;
+      }
     }
     y += layout.lineAdvance(line);
   }

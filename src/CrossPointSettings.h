@@ -193,8 +193,9 @@ class CrossPointSettings : public PersistableStore<CrossPointSettings> {
   // warmth are always remembered even when this is disabled.
   uint8_t frontlightRestoreOnWake = 1;
   // Language setting (Language enum index). Persisted as an ISO code string, so the index is only
-  // a runtime handle. CrossPoint Bible defaults to Korean (Language::KOREAN = 1) when nothing is stored.
-  uint8_t language = 1;
+  // a runtime handle. CrossPoint Bible derives it from the Bible language (BibleSession::applyLanguage);
+  // English (0) until a language is chosen.
+  uint8_t language = 0;
   // Quick Resume: keep current content visible with moon icon instead of showing a static sleep screen.
   uint8_t quickResumeSleepScreen = QUICK_RESUME_NEVER;
 

@@ -22,12 +22,28 @@ enum class LineKind : uint8_t {
   Text,          // verse text
 };
 
+// Rendering contract for a line:
+// - `text` holds space-separated tokens in logical (reading) order. Each token is measured with
+//   LayoutStyle::measure (pen advance, i.e. getTextAdvanceX), verse numbers with measureNumber, and the
+//   gaps between tokens are LayoutStyle::spaceWidth. A token ending a hyphenated line already carries
+//   its trailing "-", measured as part of the token.
+// - `rtl`: place tokens from the right edge. The first logical token (the verse number, when the line
+//   starts a verse) is drawn rightmost, each next token to the left of the previous one. Strings are
+//   NOT reversed here; reordering/shaping inside a token is the renderer's job (MiniBidi).
+// - `justify`: the line may be stretched to the full width. Without `spreadChars`, the leftover width is
+//   shared among the spaces between tokens (as for LTR, mirrored for RTL).
+// - `spreadChars`: set on character-wrapped text lines (LayoutStyle::charWrap) holding fewer than two
+//   spaces (Chinese/Japanese). When `justify` is also set, the renderer spreads the leftover width over
+//   every gap between adjacent characters of the line (the gaps inside tokens and the spaces between
+//   them each count as one gap), instead of only over the spaces. It means nothing when `justify` is false.
 struct LayoutLine {
   std::string text;  // space-separated tokens
   LineKind kind = LineKind::Text;
   uint16_t verseAtStart = 0;  // verse showing at the start of the line (0 before verse 1)
   uint16_t lastVerse = 0;     // last verse touched by the line
   bool justify = false;       // not the last line of its block: may be stretched to the full width
+  bool rtl = false;           // copied from LayoutStyle::rtl: tokens run from the right edge
+  bool spreadChars = false;   // justify by spreading over inter-character gaps (see above)
   int16_t gapBefore = 0;      // extra pixels above the line
 };
 
@@ -52,11 +68,20 @@ struct LayoutStyle {
   bool versePerLine = true;
   // Break lines between any two characters (not only at spaces), for justified text.
   bool charWrap = false;
+  // Right-to-left script. Line breaking is unchanged (logical order); lines get LayoutLine::rtl.
+  bool rtl = false;
   // Width of a token; bold for verse numbers, headings and the title.
   std::function<int(const std::string& token, bool bold)> measure;
   // Width of a verse number (digits only); defaults to measure(digits, true).
   std::function<int(const std::string& digits)> measureNumber;
   int spaceWidth = 0;
+  // Optional, word wrap only (charWrap false), text lines only, never verse numbers. Returns the byte
+  // offsets inside `word` where a hyphen may be inserted (prefix = word[0, offset)). When a word does
+  // not fit the rest of a line, the largest offset whose prefix + "-" fits is used: the line ends with
+  // prefix + "-" and the rest of the word starts the next line. A word wider than a whole line is split
+  // at hyphenation points before falling back to a hard character break. A prefix already ending in
+  // '-' gets no second hyphen.
+  std::function<std::vector<size_t>(const std::string& word)> hyphenate;
 };
 
 class ChapterLayout {

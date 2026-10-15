@@ -8,8 +8,12 @@
 #include <BiblePack.h>
 #include <HalStorage.h>
 
+#include <map>
 #include <memory>
 #include <string>
+#include <vector>
+
+class GfxRenderer;
 
 class SdByteSource final : public bible::ByteSource {
  public:
@@ -19,6 +23,22 @@ class SdByteSource final : public bible::ByteSource {
 
  private:
   HalFile file;
+};
+
+// A Bible the reader can open: the pack built into the firmware or a .cpb on the SD card.
+struct BibleChoice {
+  std::string path;  // BibleSession::BUILT_IN_PATH for the built-in pack
+  std::string title;
+};
+
+// A language available on this device: the built-in pack's language plus every
+// /bible/lang/<code>/ folder holding at least one .cpb (docs/languages.md).
+struct LanguageInfo {
+  std::string code;                       // "en", "ko", ...
+  std::string name;                       // native name (pack metadata language_name)
+  std::vector<BibleChoice> bibles;        // sorted by file name, built-in first
+  std::vector<std::string> fontFamilies;  // /bible/fonts/<code>/<family>/; empty: built-in fonts
+  bool hasUiFont = false;                 // /bible/fonts/<code>/ui/<pt>.epdfont
 };
 
 struct BiblePrefs {
@@ -38,9 +58,12 @@ class BibleSession {
   static constexpr int LINE_SPACING_COUNT = 3;
 
   static constexpr const char* BUILT_IN_PATH = "(built-in)";
+  static constexpr const char* LANG_DIR = "/bible/lang";
+  static constexpr const char* FONT_DIR = "/bible/fonts";
+  static constexpr const char* LANG_STATE_PATH = "/.crosspoint/bible-lang.txt";
 
-  // Opens the first .cpb in /bible (sorted by name), else the pack built into the
-  // firmware. Cheap when already open.
+  // Opens the current language's chosen Bible (falls back to the language's first Bible,
+  // then to the built-in pack). Cheap when already open.
   bool ensureOpen();
   void close();
   bool isOpen() const { return pack.isOpen(); }
@@ -58,10 +81,28 @@ class BibleSession {
   static std::string format(const char* fmt, int n);
   static bool isPsalms(const bible::Book& b) { return b.number == 19; }
 
+  // Languages: scanned from the built-in pack and the SD card on first use.
+  const std::vector<LanguageInfo>& languages();
+  void rescanLanguages();
+  const LanguageInfo* currentLanguage();
+  const std::string& languageCode() const { return langCode; }
+  // Switch language / Bible / reader font family. Closes the open pack; the caller
+  // re-applies fonts (BibleFonts::apply) and re-opens.
+  bool setLanguage(const std::string& code);
+  void setBible(const std::string& path);
+  void setFontFamily(const std::string& family);
+  const std::string& chosenBible() { return bibleChoice[langCode]; }
+  const std::string& chosenFontFamily() { return fontChoice[langCode]; }
+  // Applies the current language: UI language (I18n, by the language code) and fonts.
+  void applyLanguage(GfxRenderer& renderer);
+  // Pack metadata value, "" when absent.
+  std::string meta(const char* key) const;
+
   bible::Ref position;
   BiblePrefs prefs;
   void loadState();
   void saveState();
+  void saveLanguageState();
 
   // Bookmark folders; loaded on first use, saved after every change.
   bible::BookmarkStore& bookmarks();
@@ -76,6 +117,13 @@ class BibleSession {
   bool bookmarksLoaded = false;
   bible::BiblePack pack;
   std::string path;
+
+  bool openPath(const std::string& p);
+  std::vector<LanguageInfo> langs;
+  bool langsScanned = false;
+  std::string langCode = "en";
+  std::map<std::string, std::string> bibleChoice;  // language code -> Bible path
+  std::map<std::string, std::string> fontChoice;   // language code -> font family
 };
 
 extern BibleSession BIBLE;

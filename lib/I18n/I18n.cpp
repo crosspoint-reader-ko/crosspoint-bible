@@ -118,6 +118,19 @@ Language I18n::languageFromCode(const char* code) {
   return Language::EN;
 }
 
+Language I18n::languageFromBcp47(const char* tag) {
+  if (!tag) return Language::_COUNT;
+  for (uint8_t i = 0; i < static_cast<uint8_t>(Language::_COUNT); i++) {
+    if (strcmp(tag, LANGUAGE_BCP47[i]) == 0) return static_cast<Language>(i);
+  }
+  return Language::_COUNT;
+}
+
+const char* I18n::bcp47Of(Language lang) {
+  const auto i = static_cast<size_t>(lang);
+  return i < static_cast<size_t>(Language::_COUNT) ? LANGUAGE_BCP47[i] : "en";
+}
+
 // Generate character set for a specific language
 const char* I18n::getCharacterSet(Language lang) {
   const auto langIndex = static_cast<size_t>(lang);

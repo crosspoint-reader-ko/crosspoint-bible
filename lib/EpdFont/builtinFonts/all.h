@@ -1,17 +1,15 @@
 #pragma once
 
-// Korean build ships only KoPub Batang (reader) + Pretendard (UI) to stay within the
-// 6.25 MB OTA size budget. Upstream's NotoSerif/NotoSans/Ubuntu built-ins are intentionally
-// NOT included here; src/main.cpp loads only the fonts below. The NOTOSERIF_*/NOTOSANS_*
-// font IDs in fontIds.h remain defined so upstream code compiles, but their font data is absent.
+// CrossPoint Bible built-in fonts (upstream CrossPoint's Noto families; OFL).
+// Other scripts come from the language bundles on the SD card (docs/languages.md).
+// lib/EpdFont/scripts/convert-noto-fonts.sh
 
-// UI fonts (Pretendard 10pt) - Regular only, synthetic bold used when needed
-#include <builtinFonts/pretendard_10_regular.h>
+// UI: Noto Sans 10 pt (Latin, Greek, Cyrillic)
+#include <builtinFonts/noto_sans_10_regular.h>
 
-// CrossPoint Bible reader fonts (KoPub Batang Medium, KS X 1001 Hangul, compressed).
-// lib/EpdFont/scripts/convert-bible-fonts.sh
-#include <builtinFonts/bible_14_regular.h>
-#include <builtinFonts/bible_16_regular.h>
-#include <builtinFonts/bible_18_regular.h>
-#include <builtinFonts/bible_22_regular.h>
-#include <builtinFonts/bible_28_regular.h>
+// Reader: Noto Serif (Latin, Greek, Cyrillic, Hebrew letters), five sizes, compressed
+#include <builtinFonts/noto_serif_14_regular.h>
+#include <builtinFonts/noto_serif_16_regular.h>
+#include <builtinFonts/noto_serif_18_regular.h>
+#include <builtinFonts/noto_serif_22_regular.h>
+#include <builtinFonts/noto_serif_28_regular.h>

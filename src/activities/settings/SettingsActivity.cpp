@@ -16,7 +16,7 @@
 #include "ClockSettingsActivity.h"
 #include "CrossPointSettings.h"
 #include "HomeButtonSettingsActivity.h"
-#include "LanguageSelectActivity.h"
+#include "activities/bible/BibleLanguageActivity.h"
 #include "MappedInputManager.h"
 #include "SdFirmwareUpdateActivity.h"
 #include "SettingsList.h"
@@ -336,7 +336,7 @@ void SettingsActivity::toggleCurrentSetting() {
         // Row labels are translated once in rebuildRowItems() and don't
         // re-run on Pop (see ActivityManager::loop()), so a language switch
         // needs an explicit rebuild here rather than the generic resultHandler.
-        startActivityForResult(std::make_unique<LanguageSelectActivity>(renderer, mappedInput),
+        startActivityForResult(std::make_unique<BibleLanguageActivity>(renderer, mappedInput),
                                [this](const ActivityResult&) {
                                  SETTINGS.saveToFile();
                                  rebuildSettingsLists();

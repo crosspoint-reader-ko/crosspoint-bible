@@ -1,12 +1,15 @@
-// Font IDs for CrossPoint Korean version
+// Font IDs for CrossPoint Bible
 #pragma once
 
-// --- Korean build primary fonts ---
-// UI font (Pretendard 10pt) - single font for all UI sizes
+// UI font (built-in Noto Sans 10pt) - single font for all UI sizes
 #define UI_FONT_ID (1983644244)
 #define SMALL_FONT_ID UI_FONT_ID
 #define UI_10_FONT_ID UI_FONT_ID
 #define UI_12_FONT_ID UI_FONT_ID
+
+// The current language's system (UI) font from its SD bundle (/bible/fonts/<code>/ui/).
+// When registered, UI_FONT_ID is redirected to it and Noto Sans backs it per glyph.
+#define SYSTEM_FONT_ID (-888888)
 
 // Former KoPub Batang 14pt reader font id; the Bible 14pt font keeps it (src/bible/BibleFonts.h).
 #define KOPUB_14_FONT_ID (-1446433084)

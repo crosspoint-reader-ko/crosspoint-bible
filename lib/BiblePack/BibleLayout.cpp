@@ -35,6 +35,27 @@ bool isClosingPunct(const std::string& s, size_t at) {
   return false;
 }
 
+// Valid hyphenation points of `word`: inside the word, on UTF-8 character boundaries, ascending, unique.
+std::vector<size_t> hyphenPoints(const LayoutStyle& style, const std::string& word) {
+  std::vector<size_t> pts = style.hyphenate(word);
+  pts.erase(std::remove_if(pts.begin(), pts.end(),
+                           [&](size_t p) {
+                             return p == 0 || p >= word.size() ||
+                                    (static_cast<unsigned char>(word[p]) & 0xC0) == 0x80;
+                           }),
+            pts.end());
+  std::sort(pts.begin(), pts.end());
+  pts.erase(std::unique(pts.begin(), pts.end()), pts.end());
+  return pts;
+}
+
+// The text that ends a hyphenated line: the prefix plus "-" (unless it already ends in one).
+std::string hyphenPiece(const std::string& prefix) {
+  return !prefix.empty() && prefix.back() == '-' ? prefix : prefix + "-";
+}
+
+size_t countSpaces(const std::string& s) { return static_cast<size_t>(std::count(s.begin(), s.end(), ' ')); }
+
 }  // namespace
 
 std::vector<std::string> splitWords(const std::string& text) {
@@ -74,6 +95,8 @@ void ChapterLayout::addBlock(std::vector<std::string>& tokens, std::vector<uint1
 
   const auto emit = [&](bool justify) {
     line.justify = justify && kind == LineKind::Text;
+    line.rtl = style.rtl;
+    line.spreadChars = style.charWrap && kind == LineKind::Text && countSpaces(line.text) < 2;
     lines_.push_back(std::move(line));
     line = LayoutLine();
     line.kind = kind;
@@ -134,29 +157,75 @@ void ChapterLayout::addBlock(std::vector<std::string>& tokens, std::vector<uint1
       }
       continue;
     }
-    // A verse number stays on the line of the word it introduces (with character wrap, its first character).
+    const bool hyphenating = style.hyphenate && !style.charWrap && kind == LineKind::Text;
+    // A verse number stays on the line of the word it introduces (with character wrap, its first character;
+    // with hyphenation, its first hyphenated piece).
     int keep = w;
     if (isVerseNumber(t) && i + 1 < tokens.size() && tokenVerse[i + 1] == verse) {
       const std::string& next = tokens[i + 1];
-      const std::string lead =
-          style.charWrap ? next.substr(0, std::min(utf8CharLen(static_cast<unsigned char>(next[0])), next.size()))
-                         : next;
-      keep = std::min(w + style.spaceWidth + width(lead), style.width);
+      int leadWidth = 0;
+      if (style.charWrap) {
+        leadWidth = width(next.substr(0, std::min(utf8CharLen(static_cast<unsigned char>(next[0])), next.size())));
+      } else {
+        leadWidth = width(next);
+        if (hyphenating && !isVerseNumber(next)) {
+          const std::vector<size_t> pts = hyphenPoints(style, next);
+          if (!pts.empty()) leadWidth = std::min(leadWidth, style.measure(hyphenPiece(next.substr(0, pts[0])), false));
+        }
+      }
+      keep = std::min(w + style.spaceWidth + leadWidth, style.width);
     }
+
+    std::string word = t;
+    int wordWidth = w;
+    if (hyphenating && !isVerseNumber(t)) {
+      const std::vector<size_t> pts = hyphenPoints(style, t);
+      if (!pts.empty()) {
+        // Fill the line with the largest hyphenated prefix that fits, carry the rest to the next line.
+        size_t consumed = 0;
+        bool done = false;
+        while (true) {
+          const int avail = empty ? style.width : style.width - lineWidth - style.spaceWidth;
+          if (wordWidth <= avail) {
+            append(word, wordWidth, verse);
+            done = true;
+            break;
+          }
+          bool split = false;
+          for (size_t k = pts.size(); k-- > 0 && pts[k] > consumed;) {
+            const std::string piece = hyphenPiece(t.substr(consumed, pts[k] - consumed));
+            const int pw = style.measure(piece, false);
+            if (pw > avail) continue;
+            append(piece, pw, verse);
+            emit(true);
+            consumed = pts[k];
+            word = t.substr(consumed);
+            wordWidth = style.measure(word, false);
+            split = true;
+            break;
+          }
+          if (split) continue;
+          if (empty) break;  // wider than a whole line with no usable point: hard break below
+          emit(true);
+        }
+        if (done) continue;
+      }
+    }
+
     if (!empty && lineWidth + style.spaceWidth + keep > style.width) emit(true);
-    if (w <= style.width || isVerseNumber(t)) {
-      append(t, w, verse);
+    if (wordWidth <= style.width || isVerseNumber(t)) {
+      append(word, wordWidth, verse);
       continue;
     }
     // A token wider than the line: break it between characters.
     std::string piece;
-    for (size_t p = 0; p < t.size();) {
-      const size_t n = std::min(utf8CharLen(static_cast<unsigned char>(t[p])), t.size() - p);
-      std::string next = piece + t.substr(p, n);
+    for (size_t p = 0; p < word.size();) {
+      const size_t n = std::min(utf8CharLen(static_cast<unsigned char>(word[p])), word.size() - p);
+      std::string next = piece + word.substr(p, n);
       if (!piece.empty() && style.measure(next, boldBlock) > style.width - (empty ? 0 : lineWidth + style.spaceWidth)) {
         append(piece, style.measure(piece, boldBlock), verse);
         emit(false);
-        piece = t.substr(p, n);
+        piece = word.substr(p, n);
       } else {
         piece = std::move(next);
       }

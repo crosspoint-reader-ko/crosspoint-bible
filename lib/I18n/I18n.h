@@ -24,6 +24,9 @@ class I18n {
   void setLanguage(Language lang);
   const char* getLanguageName(Language lang) const;
   static Language languageFromCode(const char* code);
+  // Language whose _bcp47 tag equals `tag` ("en", "ko", ...); _COUNT when none does.
+  static Language languageFromBcp47(const char* tag);
+  static const char* bcp47Of(Language lang);
 
   // Get all unique characters used in a specific language
   // Returns a sorted string of unique characters
