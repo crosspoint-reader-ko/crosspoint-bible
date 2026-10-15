@@ -1,0 +1,27 @@
+# sd: all
+# Every bundle installed: the language list (menu row 3).
+wait:12
+press:back:100
+wait:1.5
+press:right:100
+wait:1.5
+press:right:100
+wait:1.5
+press:right:100
+wait:1.5
+press:confirm:100
+wait:1.5
+wait:4
+shot:languages
+press:down:100
+wait:1.5
+press:down:100
+wait:1.5
+press:down:100
+wait:1.5
+press:down:100
+wait:1.5
+wait:1
+press:confirm:100
+wait:12
+shot:after-switch

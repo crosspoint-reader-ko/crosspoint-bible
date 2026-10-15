@@ -1,0 +1,14 @@
+# sd: ko
+# Boots in this language: UI, Bible and fonts from its SD bundle.
+wait:15
+shot:reader
+press:back:100
+wait:1.5
+wait:2
+shot:menu
+press:back:100
+wait:1.5
+press:confirm:100
+wait:1.5
+wait:2
+shot:books

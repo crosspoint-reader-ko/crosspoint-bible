@@ -60,9 +60,14 @@ for sc in $scenarios; do
   [ -f "$steps" ] || { echo "FAIL $sc: no $steps"; fail=1; continue; }
   dir=$out/screen/$sc
   rm -rf "$dir"; mkdir -p "$dir"
-  # "# sd: empty" in a scenario boots without /bible on the card (built-in pack only).
+  # "# sd: empty" boots without /bible on the card (built-in pack only); "# sd: NAME" boots
+  # from sim/out/sd-NAME (built by sim/make-sd.sh from the language bundles).
   sdsrc=$sd
-  if grep -q '^# sd: empty' "$steps"; then sdsrc=$out/sd-empty; mkdir -p "$sdsrc"; fi
+  sdname=$(sed -n 's/^# sd: *//p' "$steps" | head -1)
+  if [ "$sdname" = empty ]; then sdsrc=$out/sd-empty; mkdir -p "$sdsrc"
+  elif [ -n "$sdname" ]; then sdsrc=$out/sd-$sdname
+    [ -d "$sdsrc" ] || { echo "FAIL $sc: no $sdsrc (run sim/make-sd.sh)"; fail=1; continue; }
+  fi
   python3 "$simsrc/x4prosim/mksd.py" "$dir/sd.img" 256 "$sdsrc" > /dev/null \
     || { echo "FAIL $sc: SD image"; fail=1; continue; }
 

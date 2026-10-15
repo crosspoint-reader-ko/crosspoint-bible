@@ -1,0 +1,4 @@
+# sd: zh
+# Boots in this language: UI, Bible and fonts from its SD bundle.
+wait:15
+shot:reader
