@@ -1,6 +1,8 @@
 #include "BibleLayout.h"
 
 #include <algorithm>
+#include <cstdint>
+#include <limits>
 
 namespace bible {
 
@@ -54,8 +56,7 @@ std::vector<size_t> hyphenPoints(const LayoutStyle& style, const std::string& wo
   std::vector<size_t> pts = style.hyphenate(word);
   pts.erase(std::remove_if(pts.begin(), pts.end(),
                            [&](size_t p) {
-                             return p == 0 || p >= word.size() ||
-                                    (static_cast<unsigned char>(word[p]) & 0xC0) == 0x80;
+                             return p == 0 || p >= word.size() || (static_cast<unsigned char>(word[p]) & 0xC0) == 0x80;
                            }),
             pts.end());
   std::sort(pts.begin(), pts.end());
@@ -93,11 +94,178 @@ int ChapterLayout::lineAdvance(const LayoutLine& line) const {
   return line.kind == LineKind::ChapterTitle ? style.titleLineHeight : style.lineHeight;
 }
 
+bool ChapterLayout::addBalancedBlock(const std::vector<std::string>& tokens, const std::vector<uint16_t>& tokenVerse,
+                                     int gapBefore) {
+  const size_t n = tokens.size();
+  const bool hyphenating = static_cast<bool>(style.hyphenate);
+  const int space = std::max(1, style.spaceWidth);
+
+  // Break positions, in reading order: the end of every token (a space follows) and every
+  // hyphenation point inside a word. Position p ends a line with token tok[p] cut at byte at[p]
+  // (at[p] == token size: the whole token).
+  std::vector<uint16_t> tok;
+  std::vector<uint16_t> at;
+  std::vector<int> first(n + 1, 0);  // first position of token i
+  tok.reserve(n * 2);
+  at.reserve(n * 2);
+  std::vector<int> width(n);
+  for (size_t i = 0; i < n; i++) {
+    first[i] = static_cast<int>(tok.size());
+    const std::string& t = tokens[i];
+    const bool number = isVerseNumber(t);
+    width[i] = number ? (style.measureNumber ? style.measureNumber(t.substr(1)) : style.measure(t.substr(1), true))
+                      : style.measure(t, false);
+    if (hyphenating && !number) {
+      for (size_t p : hyphenPoints(style, t)) {
+        tok.push_back(static_cast<uint16_t>(i));
+        at.push_back(static_cast<uint16_t>(p));
+      }
+    }
+    tok.push_back(static_cast<uint16_t>(i));
+    at.push_back(static_cast<uint16_t>(t.size()));
+  }
+  first[n] = static_cast<int>(tok.size());
+  const int count = static_cast<int>(tok.size());
+  if (count > std::numeric_limits<uint16_t>::max()) return false;
+
+  // Width of a line's last piece when it ends at p (prefix + "-", or the whole token) and of its
+  // first piece when it starts after p inside a word (the rest of that word).
+  std::vector<int> endPiece(count), restPiece(count, 0);
+  for (int p = 0; p < count; p++) {
+    const std::string& t = tokens[tok[p]];
+    if (at[p] == t.size()) {
+      endPiece[p] = width[tok[p]];
+    } else {
+      endPiece[p] = style.measure(hyphenPiece(t.substr(0, at[p])), false);
+      restPiece[p] = style.measure(t.substr(at[p]), false);
+    }
+  }
+  // Sum of whole-token widths before token i.
+  std::vector<int> prefix(n + 1, 0);
+  for (size_t i = 0; i < n; i++) prefix[i + 1] = prefix[i] + width[i];
+
+  // Line after break position a (-1: block start) up to and including position b. Returns its natural
+  // width and gap count; MIDDLE_PIECE when the line holds a piece in the middle of one word (both ends
+  // inside it), which the greedy path handles.
+  constexpr int MIDDLE_PIECE = std::numeric_limits<int>::max();
+  const auto lineWidth = [&](int a, int b, int& gaps) -> int {
+    int s = 0;           // first token
+    bool split = false;  // the line starts inside token s (after a hyphen break)
+    if (a >= 0) {
+      if (at[a] == tokens[tok[a]].size()) {
+        s = tok[a] + 1;
+      } else {
+        s = tok[a];
+        split = true;
+      }
+    }
+    const int e = tok[b];
+    gaps = e - s;
+    if (s == e) return split ? (at[b] == tokens[e].size() ? restPiece[a] : MIDDLE_PIECE) : endPiece[b];
+    return (split ? restPiece[a] : width[s]) + (prefix[e] - prefix[s + 1]) + endPiece[b] + gaps * style.spaceWidth;
+  };
+  // A verse number stays on the line of the word it introduces.
+  const auto canBreak = [&](int p) {
+    const size_t i = tok[p];
+    return !(isVerseNumber(tokens[i]) && i + 1 < n && tokenVerse[i + 1] == tokenVerse[i]);
+  };
+
+  // Demerits as in TeX: (line penalty + badness)^2 plus hyphenation penalties, badness growing with the
+  // cube of the stretch per gap (in spaces). The last line is set ragged and costs only the line penalty.
+  constexpr int64_t LINE_PENALTY = 10;
+  constexpr int64_t HYPHEN_DEMERITS = 50 * 50;
+  constexpr int64_t DOUBLE_HYPHEN_DEMERITS = 3000;
+  constexpr int64_t MAX_BADNESS = 100000000;  // keeps the squared sum of a block far from overflow
+  constexpr int64_t UNREACHED = std::numeric_limits<int64_t>::max();
+  std::vector<int64_t> best(count + 1, UNREACHED);  // best[a + 1]: demerits of a block prefix ending at a
+  std::vector<int> from(count + 1, -1);
+  best[0] = 0;
+  for (int b = 0; b < count; b++) {
+    if (b + 1 < count && !canBreak(b)) continue;
+    const bool last = b + 1 == count;
+    const bool hyphenEnd = at[b] != tokens[tok[b]].size();
+    for (int a = b - 1; a >= -1; a--) {
+      if (best[a + 1] == UNREACHED) continue;
+      int gaps = 0;
+      const int w = lineWidth(a, b, gaps);
+      if (w > style.width) {
+        // Once the line spans a space, starting earlier only adds text.
+        if (w != MIDDLE_PIECE && a >= 0 && tok[a] < tok[b]) break;
+        continue;
+      }
+      int64_t badness = 0;
+      if (!last) {
+        // 100 * (extra / (gaps * space))^3, in integers. A single word (no gap) counts as one gap: it
+        // cannot stretch, so the line is as bad as one space that wide. Not capped (TeX caps at 10000
+        // and rejects such lines): every line must be placed, and the worst of them must still rank.
+        const int64_t extra = style.width - w;
+        const int64_t den = static_cast<int64_t>(std::max(gaps, 1)) * space;
+        badness = std::min<int64_t>(MAX_BADNESS, 100 * extra * extra / den * extra / den / den);
+      }
+      int64_t d = (LINE_PENALTY + badness) * (LINE_PENALTY + badness);
+      if (hyphenEnd) d += HYPHEN_DEMERITS;
+      if (hyphenEnd && a >= 0 && at[a] != tokens[tok[a]].size()) d += DOUBLE_HYPHEN_DEMERITS;
+      if (best[a + 1] + d < best[b + 1]) {
+        best[b + 1] = best[a + 1] + d;
+        from[b + 1] = a;
+      }
+    }
+  }
+  if (best[count] == UNREACHED) return false;
+
+  std::vector<int> ends;
+  for (int b = count - 1; b >= 0; b = from[b + 1]) ends.push_back(b);
+  std::reverse(ends.begin(), ends.end());
+
+  int a = -1;
+  for (size_t k = 0; k < ends.size(); k++) {
+    const int b = ends[k];
+    LayoutLine line;
+    line.kind = LineKind::Text;
+    line.gapBefore = static_cast<int16_t>(k == 0 ? gapBefore : 0);
+    size_t s = 0;
+    size_t startAt = 0;
+    if (a >= 0) {
+      if (at[a] == tokens[tok[a]].size()) {
+        s = tok[a] + 1;
+      } else {
+        s = tok[a];
+        startAt = at[a];
+      }
+    }
+    const size_t e = tok[b];
+    for (size_t i = s; i <= e; i++) {
+      const std::string& t = tokens[i];
+      const size_t from0 = i == s ? startAt : 0;
+      const bool cut = i == e && at[b] != t.size();
+      if (i > s) line.text += ' ';
+      line.text += cut ? hyphenPiece(t.substr(from0, at[b] - from0)) : t.substr(from0);
+    }
+    line.verseAtStart = tokenVerse[s];
+    line.lastVerse = tokenVerse[e];
+    line.justify = k + 1 < ends.size();
+    line.rtl = style.rtl;
+    lines_.push_back(std::move(line));
+    a = b;
+  }
+  return true;
+}
+
 void ChapterLayout::addBlock(std::vector<std::string>& tokens, std::vector<uint16_t>& tokenVerse, LineKind kind,
                              int gapBefore) {
+  if (kind == LineKind::Text && !style.charWrap && !tokens.empty()) {
+    const size_t before = lines_.size();
+    if (addBalancedBlock(tokens, tokenVerse, gapBefore)) {
+      tokens.clear();
+      tokenVerse.clear();
+      return;
+    }
+    lines_.resize(before);
+  }
   const bool boldBlock = kind != LineKind::Text;
   const auto width = [&](const std::string& t) {
-    if (isVerseNumber(t)) return style.measureNumber ? style.measureNumber(t.substr(1)) : style.measure(t.substr(1), true);
+    if (isVerseNumber(t))
+      return style.measureNumber ? style.measureNumber(t.substr(1)) : style.measure(t.substr(1), true);
     return style.measure(t, boldBlock);
   };
 

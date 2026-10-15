@@ -344,3 +344,38 @@ TEST(BibleLayout, CharWrapKeepsOpeningQuoteOffLineEnd) {
     EXPECT_NE(line.text.substr(line.text.size() - 3), "\xE2\x80\x9C") << line.text;
   }
 }
+
+TEST(BibleLayout, BalancesLinesOverTheBlock) {
+  ChapterLayout l;
+  ChapterContent c = chapter(1, "aa bb cc ddddddd eeeee");
+  c.title.clear();
+  // Greedy filling would set "1 aa bb cc" (102, full) and then "ddddddd" alone, 32 px short with no
+  // space to stretch. Moving "cc" down evens the block out.
+  l.build(c, style(102, 1000));
+  const auto& lines = l.lines();
+  ASSERT_EQ(lines.size(), 3u);
+  EXPECT_EQ(lines[0].text, num(1) + " aa bb");
+  EXPECT_EQ(lines[1].text, "cc ddddddd");
+  EXPECT_EQ(lines[2].text, "eeeee");
+  EXPECT_TRUE(lines[0].justify);
+  EXPECT_TRUE(lines[1].justify);
+  EXPECT_FALSE(lines[2].justify);
+}
+
+TEST(BibleLayout, BalancedLinesFitAndKeepVerseNumbersWithText) {
+  ChapterLayout l;
+  ChapterContent c = chapter(4, "a bbb cc dddd e ffffff gg hhh iiiii j kk llllllll m nnnn");
+  LayoutStyle st = style(130, 1000, false);
+  st.hyphenate = fakeHyphenate;
+  l.build(c, st);
+  for (const auto& line : l.lines()) {
+    if (line.kind != LineKind::Text) continue;
+    const auto tokens = splitWords(line.text);
+    ASSERT_FALSE(tokens.empty());
+    EXPECT_NE(tokens.back()[0], NUM) << line.text;  // a number never ends a line before its text
+    int w = 0;
+    for (const auto& t : tokens) w += t[0] == NUM ? fakeWidth(t.substr(1), true) : fakeWidth(t, false);
+    w += static_cast<int>(tokens.size() - 1) * st.spaceWidth;
+    EXPECT_LE(w, st.width) << line.text;
+  }
+}

@@ -57,6 +57,7 @@ void BibleLanguageActivity::loop() {
   }
   if (mappedInput.wasReleased(Button::Confirm) && n > 0) {
     if (langs[selected].code != BIBLE.languageCode()) {
+      RenderLock lock;  // replaces the fonts a render in progress may be drawing with
       BIBLE.setLanguage(langs[selected].code);
       BIBLE.applyLanguage(renderer);
       SETTINGS.saveToFile();

@@ -85,7 +85,7 @@ Menu: Go to, Add bookmark, Bookmarks, Language, Bible, Font, Text size (14/16/18
 |---|---|---|---|
 | ![Menu](docs/screenshots/menu.png) | ![28 pt](docs/screenshots/size-28.png) | ![14 pt paragraphs](docs/screenshots/paragraphs-14.png) | ![Left aligned](docs/screenshots/align-left.png) |
 
-- Justified text keeps letter spacing fixed and spreads the leftover width over the spaces only. A line that would need gaps wider than about 2.5 spaces stays ragged. Korean, Chinese and Japanese break between characters; opening and closing punctuation follow line-breaking rules. Alignment is in Settings > Reader.
+- Justified text keeps letter spacing fixed and spreads the leftover width over the spaces only; every line but the last of a verse or paragraph reaches the right margin. Line breaks are chosen over the whole verse or paragraph for the most even spacing (as TeX does), with hyphenation where the language has patterns. Korean, Chinese and Japanese break between characters; opening and closing punctuation follow line-breaking rules. Alignment is in Settings > Reader.
 - With Smooth text (grayscale anti-aliasing) on, a page turn refreshes the screen twice; off, once.
 
 ### Bookmarks

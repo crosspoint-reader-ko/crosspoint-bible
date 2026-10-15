@@ -52,11 +52,13 @@ void BibleBookmarksActivity::createFolder() {
     if (result.isCancelled) return;
     const auto* text = std::get_if<TextResult>(&result.data);
     if (!text) return;
-    auto& store = BIBLE.bookmarks();
-    const int index = store.addFolder(text->text);
-    if (index < 0) return;
-    BIBLE.saveBookmarks();
-    selected = index;
+    {
+      RenderLock lock;
+      const int index = BIBLE.bookmarks().addFolder(text->text);
+      if (index < 0) return;
+      BIBLE.saveBookmarks();
+      selected = index;
+    }
     if (mode == Mode::AddTo) activate();  // a new folder made while bookmarking takes the bookmark
   });
 }
@@ -69,6 +71,7 @@ void BibleBookmarksActivity::activate() {
       return;
     }
     if (mode == Mode::AddTo) {
+      RenderLock lock;
       store.add(selected, toAdd);
       BIBLE.saveBookmarks();
       setResult(TextResult{store.folders()[selected].name});
@@ -102,6 +105,7 @@ void BibleBookmarksActivity::askDelete() {
 }
 
 void BibleBookmarksActivity::deleteConfirmed() {
+  RenderLock lock;  // the list a render in progress is drawing
   confirmingDelete = false;
   auto& store = BIBLE.bookmarks();
   if (level == Level::Folders) {

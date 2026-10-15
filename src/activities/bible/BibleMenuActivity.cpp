@@ -84,7 +84,7 @@ std::string BibleMenuActivity::valueOf(int row) const {
 }
 
 void BibleMenuActivity::activate(int row) {
-  auto& prefs = BIBLE.prefs;
+  // Rows that open another screen. They must not hold the render lock.
   switch (row) {
     case GOTO:
     case ADD_BOOKMARK:
@@ -95,6 +95,34 @@ void BibleMenuActivity::activate(int row) {
       finish();
       return;
     }
+    case LANGUAGE:
+      if (auto screen = makeUniqueNoThrow<BibleLanguageActivity>(renderer, mappedInput)) {
+        startActivityForResult(std::move(screen), [this](const ActivityResult&) {
+          {
+            RenderLock lock;
+            BIBLE.ensureOpen();  // the new language's Bible, for the menu's own values
+            buildRows();
+          }
+          requestUpdate();
+        });
+      }
+      return;
+    case INFO:
+      if (auto info = makeUniqueNoThrow<BibleInfoActivity>(renderer, mappedInput)) {
+        startActivityForResult(std::move(info), [](const ActivityResult&) {});
+      }
+      return;
+    case SETTINGS_ROW:
+      activityManager.goToSettings();
+      return;
+    default:
+      break;
+  }
+
+  // Setting rows change what a render in progress reads: prefs, orientation, the pack, the fonts.
+  RenderLock lock;
+  auto& prefs = BIBLE.prefs;
+  switch (row) {
     case SMOOTHING:
       // Off: one display refresh per page instead of two (no grayscale pass).
       SETTINGS.textAntiAliasing = SETTINGS.textAntiAliasing ? 0 : 1;
@@ -117,15 +145,6 @@ void BibleMenuActivity::activate(int row) {
       SETTINGS.saveToFile();
       ReaderUtils::applyOrientation(renderer, SETTINGS.orientation);
       break;
-    case LANGUAGE:
-      if (auto screen = makeUniqueNoThrow<BibleLanguageActivity>(renderer, mappedInput)) {
-        startActivityForResult(std::move(screen), [this](const ActivityResult&) {
-          BIBLE.ensureOpen();  // the new language's Bible, for the menu's own values
-          buildRows();
-          requestUpdate();
-        });
-      }
-      return;
     case BIBLE_CHOICE:
     case FONT_FAMILY: {
       // Cycle to the next Bible / reader font of the current language.
@@ -149,14 +168,6 @@ void BibleMenuActivity::activate(int row) {
       requestUpdate();
       return;
     }
-    case INFO:
-      if (auto info = makeUniqueNoThrow<BibleInfoActivity>(renderer, mappedInput)) {
-        startActivityForResult(std::move(info), [](const ActivityResult&) {});
-      }
-      return;
-    case SETTINGS_ROW:
-      activityManager.goToSettings();
-      return;
     default:
       return;
   }

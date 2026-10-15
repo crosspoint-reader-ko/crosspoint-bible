@@ -169,6 +169,7 @@ void BibleReaderActivity::openNavigator() {
   if (!nav) return;
   startActivityForResult(std::move(nav), [this](const ActivityResult& result) {
     skipNextInput = true;
+    RenderLock lock;
     ReaderUtils::applyOrientation(renderer, SETTINGS.orientation);
     if (result.isCancelled) return;
     if (const auto* ref = std::get_if<BibleRefResult>(&result.data)) {
@@ -186,6 +187,7 @@ void BibleReaderActivity::openBookmarks(bool add) {
   if (!screen) return;
   startActivityForResult(std::move(screen), [this](const ActivityResult& result) {
     skipNextInput = true;
+    RenderLock lock;
     ReaderUtils::applyOrientation(renderer, SETTINGS.orientation);
     if (result.isCancelled) return;
     if (const auto* folderName = std::get_if<TextResult>(&result.data)) {
@@ -201,21 +203,24 @@ void BibleReaderActivity::openMenu() {
   if (!menu) return;
   startActivityForResult(std::move(menu), [this](const ActivityResult& result) {
     skipNextInput = true;
-    ReaderUtils::applyOrientation(renderer, SETTINGS.orientation);
-    if (packMissing) {
-      if (BIBLE.ensureOpen()) onEnter();
-      return;
+    {
+      RenderLock lock;
+      ReaderUtils::applyOrientation(renderer, SETTINGS.orientation);
+      if (packMissing) {
+        if (BIBLE.ensureOpen()) onEnter();
+        return;
+      }
+      // A language or Bible switch in the menu closed the pack: open the new one.
+      if (!BIBLE.isOpen() && !BIBLE.ensureOpen()) {
+        packMissing = true;
+        return;
+      }
+      const bible::Ref pos = BIBLE.getPack().clamp(
+          bible::Ref{static_cast<uint8_t>(book), static_cast<uint16_t>(chapter), layout.pageFirstVerse(page)});
+      book = pos.book;
+      chapter = pos.chapter;
+      relayout();
     }
-    // A language or Bible switch in the menu closed the pack: open the new one.
-    if (!BIBLE.isOpen() && !BIBLE.ensureOpen()) {
-      packMissing = true;
-      return;
-    }
-    const bible::Ref pos = BIBLE.getPack().clamp(
-        bible::Ref{static_cast<uint8_t>(book), static_cast<uint16_t>(chapter), layout.pageFirstVerse(page)});
-    book = pos.book;
-    chapter = pos.chapter;
-    relayout();
     if (const auto* menuResult = std::get_if<MenuResult>(&result.data)) {
       switch (menuResult->action) {
         case BibleMenuActivity::ACTION_GOTO:
@@ -245,7 +250,10 @@ void BibleReaderActivity::loop() {
     return;
   }
   if (packMissing) {
-    if (mappedInput.wasReleased(Button::Confirm) && BIBLE.ensureOpen()) onEnter();
+    if (mappedInput.wasReleased(Button::Confirm)) {
+      RenderLock lock;
+      if (BIBLE.ensureOpen()) onEnter();
+    }
     return;
   }
   if (mappedInput.wasReleased(Button::Confirm)) {
@@ -256,20 +264,28 @@ void BibleReaderActivity::loop() {
   const bool swap = mappedInput.isNavDirectionSwapped();
   const Button prevButtons[] = {Button::PageBack, swap ? Button::Right : Button::Left};
   const Button nextButtons[] = {Button::PageForward, swap ? Button::Left : Button::Right};
-  bool changed = false;
+  // -1/+1 page, -2/+2 chapter.
+  int step = 0;
   for (const Button b : prevButtons) {
     if (mappedInput.wasLongPressed(b, CHAPTER_HOLD_MS)) {
-      changed |= skipChapter(false);
+      step = -2;
     } else if (mappedInput.wasReleased(b)) {
-      changed |= turnPage(false);
+      step = -1;
     }
   }
   for (const Button b : nextButtons) {
     if (mappedInput.wasLongPressed(b, CHAPTER_HOLD_MS)) {
-      changed |= skipChapter(true);
+      step = 2;
     } else if (mappedInput.wasReleased(b)) {
-      changed |= turnPage(true);
+      step = 1;
     }
+  }
+  if (step == 0) return;
+  // The render task may still be drawing the previous page from `layout`; a chapter change rebuilds it.
+  bool changed;
+  {
+    RenderLock lock;
+    changed = step == 1 || step == -1 ? turnPage(step > 0) : skipChapter(step > 0);
   }
   if (changed) requestUpdate();
 }
@@ -378,13 +394,11 @@ void BibleReaderActivity::drawPage(int top, int left, bool grayPass) {
     }
     const int unitCount = static_cast<int>(units.size());
     const int gaps = spread ? unitCount - 1 : static_cast<int>(tokens.size()) - 1;
-    int extra = 0;
-    if (justified && line.justify && line.kind == bible::LineKind::Text && gaps > 0) {
-      extra = std::max(0, width - natural);
-      // A line of a few long words (Malayalam, a long English word wrapped) would open gaps
-      // several spaces wide; such a line stays ragged instead.
-      if (!spread && extra > gaps * spaceWidth * 5 / 2) extra = 0;
-    }
+    // Every line but the last of a block reaches the right edge. The layout chose the breaks for
+    // the most even spacing (BibleLayout::addBalancedBlock), so wide gaps are already as rare as
+    // the text and width allow.
+    const int extra =
+        justified && line.justify && line.kind == bible::LineKind::Text && gaps > 0 ? std::max(0, width - natural) : 0;
     int gapIndex = 0;
     int pos = 0;  // distance travelled from the line start edge
     for (int k = 0; k < unitCount; k++) {

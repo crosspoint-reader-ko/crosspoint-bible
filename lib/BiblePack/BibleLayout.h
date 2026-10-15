@@ -60,11 +60,11 @@ struct ChapterContent {
 };
 
 struct LayoutStyle {
-  int width = 0;           // text area width in px
-  int height = 0;          // text area height in px
-  int lineHeight = 0;      // text line advance
-  int titleLineHeight = 0; // chapter title line advance
-  int blockGap = 0;        // gap above a heading or a new paragraph
+  int width = 0;            // text area width in px
+  int height = 0;           // text area height in px
+  int lineHeight = 0;       // text line advance
+  int titleLineHeight = 0;  // chapter title line advance
+  int blockGap = 0;         // gap above a heading or a new paragraph
   bool versePerLine = true;
   // Break lines between any two characters (not only at spaces), for justified text.
   bool charWrap = false;
@@ -76,11 +76,11 @@ struct LayoutStyle {
   std::function<int(const std::string& digits)> measureNumber;
   int spaceWidth = 0;
   // Optional, word wrap only (charWrap false), text lines only, never verse numbers. Returns the byte
-  // offsets inside `word` where a hyphen may be inserted (prefix = word[0, offset)). When a word does
-  // not fit the rest of a line, the largest offset whose prefix + "-" fits is used: the line ends with
-  // prefix + "-" and the rest of the word starts the next line. A word wider than a whole line is split
-  // at hyphenation points before falling back to a hard character break. A prefix already ending in
-  // '-' gets no second hyphen.
+  // offsets inside `word` where a hyphen may be inserted (prefix = word[0, offset)): a line may end with
+  // prefix + "-", the rest of the word starting the next line. Word-wrapped text blocks choose their
+  // breaks (spaces and these points) for the most even spacing over the whole block; a word wider than a
+  // whole line with no usable point falls back to greedy filling and a hard character break. A prefix
+  // already ending in '-' gets no second hyphen.
   std::function<std::vector<size_t>(const std::string& word)> hyphenate;
 };
 
@@ -103,6 +103,10 @@ class ChapterLayout {
 
  private:
   void addBlock(std::vector<std::string>& tokens, std::vector<uint16_t>& tokenVerse, LineKind kind, int gapBefore);
+  // Word-wrapped text block broken for the most even justified spacing over the whole block
+  // (total fit, as TeX does) instead of filling each line greedily. False when some piece cannot
+  // fit a line on its own; addBlock then falls back to greedy filling with hard breaks.
+  bool addBalancedBlock(const std::vector<std::string>& tokens, const std::vector<uint16_t>& tokenVerse, int gapBefore);
   void paginate();
 
   LayoutStyle style;
