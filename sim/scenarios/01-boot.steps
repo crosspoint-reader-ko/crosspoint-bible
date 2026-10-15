@@ -1,3 +1,5 @@
-# Boot to the first screen.
-wait:8
+# Splash, then the first Bible page.
+wait:2.5
+shot:splash
+wait:10
 shot:boot
