@@ -124,4 +124,22 @@ TEST(BiblePack, RealBible) {
   EXPECT_EQ(text.substr(text.size() - 6), "아멘");
 }
 
+// The built-in English pack (Open Translation Bible en-GB).
+TEST(BiblePack, BuiltInEnglish) {
+  const char* path = std::getenv("BIBLE_CPB_EN");
+  if (!path) GTEST_SKIP() << "BIBLE_CPB_EN not set";
+  FileSource src(path);
+  bible::BiblePack pack;
+  ASSERT_TRUE(pack.open(&src));
+  EXPECT_GE(pack.totalVerses(), 31000u);
+  EXPECT_EQ(pack.book(18).chapterCount, 150);
+  EXPECT_EQ(pack.verseCountOf(18, 119), 176);
+  std::string text;
+  ASSERT_TRUE(pack.verseText(pack.verseIndex({42, 3, 16}), text));
+  EXPECT_NE(text.find("God"), std::string::npos);
+  EXPECT_NE(text.find("loved"), std::string::npos);
+  ASSERT_TRUE(pack.verseText(pack.verseIndex({65, 22, 21}), text));
+  EXPECT_EQ(text.substr(text.size() - 6), " Amen.");
+}
+
 }  // namespace

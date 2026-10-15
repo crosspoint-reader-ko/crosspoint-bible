@@ -107,7 +107,8 @@ void BibleLanguageActivity::render(RenderLock&&) {
       std::string label = englishName(l.code);
       if (l.code == BIBLE.languageCode()) label = "• " + label;
       renderer.drawText(rowFont, x + 6, ty, label.c_str(), !sel, EpdFontFamily::BOLD);
-      if (l.name != l.code) {
+      // The native name only when the current UI font can draw it (e.g. not Arabic in an English UI).
+      if (l.name != l.code && renderer.hasGlyphs(nativeFont, l.name.c_str())) {
         const int w = renderer.getTextWidth(nativeFont, l.name.c_str());
         const int ny = y + (rowH - 4 - renderer.getLineHeight(nativeFont)) / 2;
         renderer.drawText(nativeFont, x + width - 6 - w, ny, l.name.c_str(), !sel);

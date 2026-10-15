@@ -1973,6 +1973,17 @@ int GfxRenderer::getKerning(const int fontId, const uint32_t leftCp, const uint3
 
 // The Korean build has no SD advance-table fast path (upstream .cpfont), so `mode` is accepted
 // for API compatibility and every measurement walks the resolved UnifiedFontFamily.
+bool GfxRenderer::hasGlyphs(const int fontId, const char* text, const EpdFontFamily::Style style) const {
+  auto it = fontMap.find(getEffectiveFontId(fontId));
+  if (it == fontMap.end() || !text) return false;
+  uint32_t cp;
+  while ((cp = utf8NextCodepoint(reinterpret_cast<const uint8_t**>(&text)))) {
+    if (cp == ' ' || utf8IsCombiningMark(cp) || BidiUtils::isTransparentMark(cp)) continue;
+    if (!it->second->hasGlyph(cp, style)) return false;
+  }
+  return true;
+}
+
 int GfxRenderer::getTextAdvanceX(const int fontId, const char* text, EpdFontFamily::Style style, const int8_t tracking,
                                  const BidiUtils::BidiBaseDir baseDir, const TextMeasureMode /*mode*/) const {
   // Measure the exact codepoint stream drawText renders: bidi-reordered and Arabic-shaped.

@@ -56,14 +56,20 @@ bool peekPack(bible::ByteSource& src, std::string& title, std::string& lang, std
   return true;
 }
 
-std::vector<std::string> listNames(const char* dir) {
+// Entry names of a directory, sorted: folders when `dirs`, else files. (HalStorage::listFiles
+// skips folders, and the language and font-family layout is folders.)
+std::vector<std::string> listNames(const char* dir, bool dirs = false) {
   std::vector<std::string> out;
-  for (const auto& n : Storage.listFiles(dir, 100)) {
-    std::string name = n.c_str();
-    const size_t slash = name.find_last_of('/');
-    if (slash != std::string::npos) name = name.substr(slash + 1);
-    if (!name.empty() && name[0] != '.') out.push_back(name);
+  HalFile root = Storage.open(dir);
+  if (!root || !root.isDirectory()) return out;
+  char name[128];
+  for (HalFile f = root.openNextFile(); f && out.size() < 100; f = root.openNextFile()) {
+    const bool isDir = f.isDirectory();
+    f.getName(name, sizeof(name));
+    f.close();
+    if (isDir == dirs && name[0] && name[0] != '.') out.emplace_back(name);
   }
+  root.close();
   std::sort(out.begin(), out.end());
   return out;
 }
@@ -94,7 +100,7 @@ void BibleSession::rescanLanguages() {
     if (peekPack(mem, title, lang, langName)) addBible(lang, langName, {BUILT_IN_PATH, title});
   }
   // /bible/lang/<code>/*.cpb
-  for (const auto& code : listNames(LANG_DIR)) {
+  for (const auto& code : listNames(LANG_DIR, true)) {
     const std::string dir = std::string(LANG_DIR) + "/" + code;
     for (const auto& f : listNames(dir.c_str())) {
       if (!endsWithCpb(f)) continue;
@@ -117,10 +123,10 @@ void BibleSession::rescanLanguages() {
   // Fonts: /bible/fonts/<code>/<family>/ and /bible/fonts/<code>/ui/
   for (auto& l : langs) {
     const std::string dir = std::string(FONT_DIR) + "/" + l.code;
-    for (const auto& family : listNames(dir.c_str())) {
+    for (const auto& family : listNames(dir.c_str(), true)) {
       if (family == "ui") {
         l.hasUiFont = true;
-      } else if (family != "LICENSES" && family.find('.') == std::string::npos) {
+      } else if (family != "LICENSES") {
         l.fontFamilies.push_back(family);
       }
     }
@@ -257,6 +263,9 @@ std::string BibleSession::format(const char* fmt, int n) {
 
 std::string BibleSession::chapterTitle(int book, int chapter) const {
   const bool psalm = book >= 0 && book < pack.bookCount() && isPsalms(pack.book(book));
+  // A pack may carry its own formats (pre-shaped scripts whose UI stays English).
+  const std::string own = meta(psalm ? "psalm_fmt" : "chapter_fmt");
+  if (own.find("%d") != std::string::npos) return format(own.c_str(), chapter);
   return format(psalm ? tr(STR_BIBLE_PSALM_FMT) : tr(STR_BIBLE_CHAPTER_FMT), chapter);
 }
 

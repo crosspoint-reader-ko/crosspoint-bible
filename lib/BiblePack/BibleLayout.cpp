@@ -18,6 +18,20 @@ size_t utf8CharLen(unsigned char c) {
 
 bool isVerseNumber(const std::string& token) { return !token.empty() && token[0] == VERSE_NUMBER_MARK; }
 
+// Punctuation that must not end a line (kinsoku): opening quotes and brackets.
+bool isOpeningPunct(const std::string& s, size_t at) {
+  if (at >= s.size()) return false;
+  const char c = s[at];
+  if (c == '(' || c == '[' || c == '{') return true;
+  // U+2018 ‘, U+201C “, U+300C 「, U+300E 『, U+FF08 （, U+3008 〈, U+300A 《
+  static const char* const wide[] = {"\xE2\x80\x98", "\xE2\x80\x9C", "\xE3\x80\x8C", "\xE3\x80\x8E",
+                                     "\xEF\xBC\x88", "\xE3\x80\x88", "\xE3\x80\x8A"};
+  for (const char* w : wide) {
+    if (s.compare(at, 3, w) == 0) return true;
+  }
+  return false;
+}
+
 // Punctuation that must not start a line (kinsoku).
 bool isClosingPunct(const std::string& s, size_t at) {
   if (at >= s.size()) return false;
@@ -137,12 +151,14 @@ void ChapterLayout::addBlock(std::vector<std::string>& tokens, std::vector<uint1
           p += n;
           cut = p;
         }
-        // Keep closing punctuation off the start of the next line.
-        while (cut > 0 && isClosingPunct(rest, cut)) {
-          size_t prev = cut - 1;
+        // Keep closing punctuation off the start of the next line, and opening punctuation
+        // off the end of this one.
+        const auto prevChar = [&rest](size_t at) {
+          size_t prev = at - 1;
           while (prev > 0 && (static_cast<unsigned char>(rest[prev]) & 0xC0) == 0x80) prev--;
-          cut = prev;
-        }
+          return prev;
+        };
+        while (cut > 0 && (isClosingPunct(rest, cut) || isOpeningPunct(rest, prevChar(cut)))) cut = prevChar(cut);
         if (cut == 0) {
           if (!empty) {
             emit(true);

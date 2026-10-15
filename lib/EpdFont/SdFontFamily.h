@@ -121,6 +121,10 @@ class UnifiedFontFamily {
   // Unified interface
   void getTextDimensions(const char* string, int* w, int* h, EpdFontStyle style = REGULAR) const;
   bool hasPrintableChars(const char* string, EpdFontStyle style = REGULAR) const;
+  // True when this font or its glyph fallback has a real glyph for cp.
+  bool hasGlyph(uint32_t cp, EpdFontStyle style = REGULAR) const {
+    return hasOwnGlyph(cp, style) || (glyphFallback && glyphFallback->hasOwnGlyph(cp, style));
+  }
   const EpdGlyph* getGlyph(uint32_t cp, EpdFontStyle style = REGULAR) const;
 
   // For SD fonts: get bitmap data (for flash fonts, use getData()->bitmap[offset])

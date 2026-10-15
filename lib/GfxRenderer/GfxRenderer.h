@@ -298,6 +298,8 @@ class GfxRenderer {
   void drawText(int fontId, int x, int y, const char* text, int8_t letterSpacing, bool black = true,
                 EpdFontFamily::Style style = EpdFontFamily::REGULAR) const;
   int getSpaceWidth(int fontId, EpdFontFamily::Style style = EpdFontFamily::REGULAR) const;
+  // True when every non-space character of text has a glyph in the font (or its glyph fallback).
+  bool hasGlyphs(int fontId, const char* text, EpdFontFamily::Style style = EpdFontFamily::REGULAR) const;
   /// Returns the total inter-word advance: fp4::toPixel(spaceAdvance + kern(leftCp,' ') + kern(' ',rightCp)).
   /// Using a single snap avoids the +/-1 px rounding error that arises when space advance and kern are
   /// snapped separately and then added as integers.

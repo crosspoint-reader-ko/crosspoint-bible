@@ -25,7 +25,7 @@ jobs:
         run: |
           cmake -S test -B build/test -DCMAKE_BUILD_TYPE=Release
           cmake --build build/test -j"$(nproc)"
-          BIBLE_CPB="$PWD/data/bible/krv1961.cpb" ctest --test-dir build/test --output-on-failure -j"$(nproc)"
+          BIBLE_CPB="$PWD/data/bible/krv1961.cpb" BIBLE_CPB_EN="$PWD/data/bible/otb-en.cpb" ctest --test-dir build/test --output-on-failure -j"$(nproc)"
 
   build:
     name: Build X4/X3 firmware

@@ -356,6 +356,7 @@ void BibleReaderActivity::drawPage(int top, int left, bool grayPass) {
       if (isVerseNumber(t)) {
         units.push_back({t.substr(1), renderer.getTextAdvanceX(numberFontId, t.c_str() + 1, EpdFontFamily::BOLD),
                          true, !last});
+        natural += units.back().width;
       } else if (spread) {
         for (size_t p = 0; p < t.size();) {
           const auto c = static_cast<unsigned char>(t[p]);
@@ -365,11 +366,12 @@ void BibleReaderActivity::drawPage(int top, int left, bool grayPass) {
           const int w = renderer.getTextAdvanceX(fontId, ch.c_str(), style);
           p += n;
           units.push_back({std::move(ch), w, false, p >= t.size() && !last});
+          natural += w;
         }
       } else {
         units.push_back({t, renderer.getTextAdvanceX(fontId, t.c_str(), style), false, !last});
+        natural += units.back().width;
       }
-      natural += units.back().width;
       if (!last) natural += spaceWidth;
     }
     const int unitCount = static_cast<int>(units.size());
@@ -377,6 +379,9 @@ void BibleReaderActivity::drawPage(int top, int left, bool grayPass) {
     int extra = 0;
     if (justified && line.justify && line.kind == bible::LineKind::Text && gaps > 0) {
       extra = std::max(0, width - natural);
+      // A line of a few long words (Malayalam, a long English word wrapped) would open gaps
+      // several spaces wide; such a line stays ragged instead.
+      if (!spread && extra > gaps * spaceWidth * 5 / 2) extra = 0;
     }
     int gapIndex = 0;
     int pos = 0;  // distance travelled from the line start edge

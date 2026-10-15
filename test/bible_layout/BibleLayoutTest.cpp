@@ -329,3 +329,18 @@ TEST(BibleLayout, SpreadHintOffForSpacedOrWordWrappedText) {
   EXPECT_FALSE(l.lines()[0].spreadChars);
   EXPECT_TRUE(l.lines()[1].spreadChars);
 }
+
+TEST(BibleLayout, CharWrapKeepsOpeningQuoteOffLineEnd) {
+  ChapterLayout l;
+  // "가나다“라마" in a 50 px line after the number: "1"(12)+" "(10) leaves 28 px: "가나" fits,
+  // so no quote at the end. Then "다“라마" (one char = 10 px, quote = 10 px) ...
+  ChapterContent c = chapter(1, "가나다라“마바");
+  c.title.clear();
+  LayoutStyle st = style(60, 1000);
+  st.charWrap = true;
+  l.build(c, st);
+  for (const auto& line : l.lines()) {
+    ASSERT_FALSE(line.text.empty());
+    EXPECT_NE(line.text.substr(line.text.size() - 3), "\xE2\x80\x9C") << line.text;
+  }
+}
