@@ -32,17 +32,25 @@ const std::vector<BibleTextInputActivity::Row>& BibleTextInputActivity::layout()
                {"", 0, Action::Delete, 2},
                {"", 0, Action::Done, 2}};
   };
-  static const std::vector<Row> hangul = {
-      chars(U"1234567890"), chars(U"ㅂㅈㄷㄱㅅㅛㅕㅑㅐㅔ"), chars(U"ㅁㄴㅇㄹㅎㅗㅓㅏㅣ"), chars(U"ㅋㅌㅊㅍㅠㅜㅡ"),
-      bottom(true)};
-  static const std::vector<Row> hangulShift = {
-      chars(U"1234567890"), chars(U"ㅃㅉㄸㄲㅆㅛㅕㅑㅒㅖ"), chars(U"ㅁㄴㅇㄹㅎㅗㅓㅏㅣ"), chars(U"ㅋㅌㅊㅍㅠㅜㅡ"),
-      bottom(true)};
+  // Without a font that draws Hangul (every language but Korean) there is no Hangul key.
+  const auto bottomLatinOnly = []() {
+    return Row{
+        {"Aa", 0, Action::Shift, 2}, {"", ' ', Action::Space, 5}, {"", 0, Action::Delete, 2}, {"", 0, Action::Done, 2}};
+  };
+  static const std::vector<Row> hangul = {chars(U"1234567890"), chars(U"ㅂㅈㄷㄱㅅㅛㅕㅑㅐㅔ"),
+                                          chars(U"ㅁㄴㅇㄹㅎㅗㅓㅏㅣ"), chars(U"ㅋㅌㅊㅍㅠㅜㅡ"), bottom(true)};
+  static const std::vector<Row> hangulShift = {chars(U"1234567890"), chars(U"ㅃㅉㄸㄲㅆㅛㅕㅑㅒㅖ"),
+                                               chars(U"ㅁㄴㅇㄹㅎㅗㅓㅏㅣ"), chars(U"ㅋㅌㅊㅍㅠㅜㅡ"), bottom(true)};
   static const std::vector<Row> latin = {chars(U"1234567890"), chars(U"qwertyuiop"), chars(U"asdfghjkl"),
                                          chars(U"zxcvbnm-"), bottom(false)};
   static const std::vector<Row> latinShift = {chars(U"1234567890"), chars(U"QWERTYUIOP"), chars(U"ASDFGHJKL"),
                                               chars(U"ZXCVBNM-"), bottom(false)};
+  static const std::vector<Row> latinOnly = {chars(U"1234567890"), chars(U"qwertyuiop"), chars(U"asdfghjkl"),
+                                             chars(U"zxcvbnm-"), bottomLatinOnly()};
+  static const std::vector<Row> latinOnlyShift = {chars(U"1234567890"), chars(U"QWERTYUIOP"), chars(U"ASDFGHJKL"),
+                                                  chars(U"ZXCVBNM-"), bottomLatinOnly()};
   if (hangulMode) return shift ? hangulShift : hangul;
+  if (!hangulAvailable) return shift ? latinOnlyShift : latinOnly;
   return shift ? latinShift : latin;
 }
 
@@ -54,6 +62,9 @@ const BibleTextInputActivity::Key& BibleTextInputActivity::selectedKey() const {
 
 void BibleTextInputActivity::onEnter() {
   Activity::onEnter();
+  hangulAvailable = renderer.hasGlyphs(BibleFonts::IDS[3], "ㅂㅈㄷㄱ한글");
+  hangulMode = hangulAvailable;
+  shift = false;
   row = 1;
   col = 0;
   requestUpdate();
@@ -109,6 +120,7 @@ void BibleTextInputActivity::press(const Key& key) {
       shift = !shift;
       break;
     case Action::Lang:
+      if (!hangulAvailable) break;
       hangulMode = !hangulMode;
       shift = false;
       col = std::min<int>(col, static_cast<int>(layout()[row].size()) - 1);
@@ -206,8 +218,8 @@ void BibleTextInputActivity::render(RenderLock&&) {
         if (sel) {
           renderer.fillRoundedRect(kx + KEY_GAP / 2, ky + KEY_GAP / 2, kw - KEY_GAP, keyH - KEY_GAP, 8, Color::Black);
         } else {
-          renderer.drawRoundedRect(kx + KEY_GAP / 2, ky + KEY_GAP / 2, kw - KEY_GAP, keyH - KEY_GAP, latched ? 3 : 1,
-                                   8, true);
+          renderer.drawRoundedRect(kx + KEY_GAP / 2, ky + KEY_GAP / 2, kw - KEY_GAP, keyH - KEY_GAP, latched ? 3 : 1, 8,
+                                   true);
         }
         std::string label;
         if (k.label && *k.label) {

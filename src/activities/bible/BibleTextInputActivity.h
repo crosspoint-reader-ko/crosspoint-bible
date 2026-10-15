@@ -42,7 +42,8 @@ class BibleTextInputActivity final : public Activity {
   std::string title;
   size_t maxBytes;
   std::vector<uint32_t> typed;
-  bool hangulMode = true;
+  bool hangulAvailable = false;
+  bool hangulMode = false;
   bool shift = false;
   int row = 1;
   int col = 0;

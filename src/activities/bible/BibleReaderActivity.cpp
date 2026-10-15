@@ -163,9 +163,9 @@ bool BibleReaderActivity::skipChapter(bool forward) {
 }
 
 void BibleReaderActivity::openNavigator() {
-  auto nav = makeUniqueNoThrow<BibleNavigatorActivity>(renderer, mappedInput, bible::Ref{static_cast<uint8_t>(book),
-                                                                                         static_cast<uint16_t>(chapter),
-                                                                                         layout.pageFirstVerse(page)});
+  auto nav = makeUniqueNoThrow<BibleNavigatorActivity>(
+      renderer, mappedInput,
+      bible::Ref{static_cast<uint8_t>(book), static_cast<uint16_t>(chapter), layout.pageFirstVerse(page)});
   if (!nav) return;
   startActivityForResult(std::move(nav), [this](const ActivityResult& result) {
     skipNextInput = true;
@@ -211,8 +211,8 @@ void BibleReaderActivity::openMenu() {
       packMissing = true;
       return;
     }
-    const bible::Ref pos = BIBLE.getPack().clamp(bible::Ref{static_cast<uint8_t>(book), static_cast<uint16_t>(chapter),
-                                                            layout.pageFirstVerse(page)});
+    const bible::Ref pos = BIBLE.getPack().clamp(
+        bible::Ref{static_cast<uint8_t>(book), static_cast<uint16_t>(chapter), layout.pageFirstVerse(page)});
     book = pos.book;
     chapter = pos.chapter;
     relayout();
@@ -276,21 +276,23 @@ void BibleReaderActivity::loop() {
 
 void BibleReaderActivity::drawChrome(int top, int left, int width, int bottom) {
   const int labelFont = BibleFonts::LABEL_FONT_ID;
-  const std::string title = BIBLE.chapterLabel(book, chapter);
-  renderer.drawText(labelFont, left, top, title.c_str(), true, EpdFontFamily::BOLD);
-
   const uint16_t first = layout.pageFirstVerse(page);
   const uint16_t last = layout.pageLastVerse(page);
   if (!notice.empty()) {
-    // One-time confirmation (e.g. "북마크 추가: 감사") in place of the verse range.
-    const std::string shown = renderer.truncatedText(labelFont, notice.c_str(), width / 2);
-    const int w = renderer.getTextWidth(labelFont, shown.c_str());
-    renderer.drawText(labelFont, left + width - w, top, shown.c_str(), true, EpdFontFamily::BOLD);
-  } else if (first > 0) {
-    std::string range = std::to_string(chapter) + ":" + std::to_string(first);
-    if (last > first) range += "-" + std::to_string(last);
-    const int w = renderer.getTextWidth(labelFont, range.c_str());
-    renderer.drawText(labelFont, left + width - w, top, range.c_str());
+    // One-time confirmation ("Bookmarked: quiet") in place of the whole header line.
+    const std::string shown = renderer.truncatedText(labelFont, notice.c_str(), width, EpdFontFamily::BOLD);
+    renderer.drawText(labelFont, left, top, shown.c_str(), true, EpdFontFamily::BOLD);
+  } else {
+    std::string range;
+    if (first > 0) {
+      range = std::to_string(chapter) + ":" + std::to_string(first);
+      if (last > first) range += "-" + std::to_string(last);
+    }
+    const int rangeW = range.empty() ? 0 : renderer.getTextWidth(labelFont, range.c_str());
+    const std::string title = renderer.truncatedText(labelFont, BIBLE.chapterLabel(book, chapter).c_str(),
+                                                     width - rangeW - (rangeW ? 16 : 0), EpdFontFamily::BOLD);
+    renderer.drawText(labelFont, left, top, title.c_str(), true, EpdFontFamily::BOLD);
+    if (rangeW) renderer.drawText(labelFont, left + width - rangeW, top, range.c_str());
   }
 
   const std::string pageText = std::to_string(page + 1) + " / " + std::to_string(layout.pageCount());
@@ -354,8 +356,8 @@ void BibleReaderActivity::drawPage(int top, int left, bool grayPass) {
       const std::string& t = tokens[k];
       const bool last = k + 1 == tokens.size();
       if (isVerseNumber(t)) {
-        units.push_back({t.substr(1), renderer.getTextAdvanceX(numberFontId, t.c_str() + 1, EpdFontFamily::BOLD),
-                         true, !last});
+        units.push_back(
+            {t.substr(1), renderer.getTextAdvanceX(numberFontId, t.c_str() + 1, EpdFontFamily::BOLD), true, !last});
         natural += units.back().width;
       } else if (spread) {
         for (size_t p = 0; p < t.size();) {
@@ -425,8 +427,8 @@ void BibleReaderActivity::render(RenderLock&&) {
     return;
   }
 
-  LOG_DBG("BIBLE", "render %d:%d page %d/%d, heap free %u max %u", book + 1, chapter, page + 1,
-          layout.pageCount(), static_cast<unsigned>(ESP.getFreeHeap()), static_cast<unsigned>(ESP.getMaxAllocHeap()));
+  LOG_DBG("BIBLE", "render %d:%d page %d/%d, heap free %u max %u", book + 1, chapter, page + 1, layout.pageCount(),
+          static_cast<unsigned>(ESP.getFreeHeap()), static_cast<unsigned>(ESP.getMaxAllocHeap()));
   const auto drawAll = [&]() {
     drawChrome(chromeTop, contentLeft, contentWidth, chromeBottom);
     drawPage(textTop, contentLeft);

@@ -52,8 +52,14 @@ std::string BibleMenuActivity::valueOf(int row) const {
       return prefs.versePerLine ? tr(STR_BIBLE_LAYOUT_VERSES) : tr(STR_BIBLE_LAYOUT_PARAGRAPHS);
     case HEADINGS:
       return prefs.showHeadings ? tr(STR_STATE_ON) : tr(STR_STATE_OFF);
-    case LANGUAGE:
+    case LANGUAGE: {
+      // The language's own name (한국어) when the menu font draws it, else the English one.
+      const LanguageInfo* lang = BIBLE.currentLanguage();
+      if (lang && !lang->name.empty() && renderer.hasGlyphs(BibleFonts::IDS[1], lang->name.c_str())) {
+        return lang->name;
+      }
       return BibleLanguageActivity::englishName(BIBLE.languageCode());
+    }
     case BIBLE_CHOICE:
       return BIBLE.isOpen() ? BIBLE.getPack().title() : "";
     case FONT_FAMILY: {
@@ -190,19 +196,18 @@ void BibleMenuActivity::render(RenderLock&&) {
   const int hintsHeight = UITheme::getInstance().getMetrics().buttonHintsHeight;
 
   static constexpr StrId labels[ROW_COUNT] = {
-      StrId::STR_BIBLE_GOTO,      StrId::STR_BIBLE_ADD_BOOKMARK, StrId::STR_BIBLE_BOOKMARKS,
-      StrId::STR_LANGUAGE,        StrId::STR_BIBLE_CHOICE,       StrId::STR_BIBLE_FONT,
-      StrId::STR_BIBLE_FONT_SIZE, StrId::STR_BIBLE_LINE_SPACING,
-      StrId::STR_BIBLE_LAYOUT,    StrId::STR_BIBLE_HEADINGS,     StrId::STR_BIBLE_SMOOTHING,
-      StrId::STR_ORIENTATION,     StrId::STR_BIBLE_INFO,         StrId::STR_SETTINGS_TITLE,
+      StrId::STR_BIBLE_GOTO,   StrId::STR_BIBLE_ADD_BOOKMARK, StrId::STR_BIBLE_BOOKMARKS, StrId::STR_LANGUAGE,
+      StrId::STR_BIBLE_CHOICE, StrId::STR_BIBLE_FONT,         StrId::STR_BIBLE_FONT_SIZE, StrId::STR_BIBLE_LINE_SPACING,
+      StrId::STR_BIBLE_LAYOUT, StrId::STR_BIBLE_HEADINGS,     StrId::STR_BIBLE_SMOOTHING, StrId::STR_ORIENTATION,
+      StrId::STR_BIBLE_INFO,   StrId::STR_SETTINGS_TITLE,
   };
 
   const int titleFont = BibleFonts::IDS[3];
   const int titleH = renderer.getLineHeight(titleFont) + 16;
   const int available = screenH - top - bottom - hintsHeight - titleH - 10;
   // Rows in pages: the 16 pt font (14 pt in landscape) with room around each row.
-  const int rowFont = available >= 8 * (renderer.getLineHeight(BibleFonts::IDS[1]) + 20) ? BibleFonts::IDS[1]
-                                                                                         : BibleFonts::IDS[0];
+  const int rowFont =
+      available >= 8 * (renderer.getLineHeight(BibleFonts::IDS[1]) + 20) ? BibleFonts::IDS[1] : BibleFonts::IDS[0];
   const int rowH = renderer.getLineHeight(rowFont) + 20;
   const int perPage = std::max(1, available / rowH);
   const int count = static_cast<int>(rows.size());

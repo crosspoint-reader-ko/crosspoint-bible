@@ -190,9 +190,12 @@ void BibleNavigatorActivity::drawCell(int x, int y, int w, int h, int fontId, co
   } else if (marked) {
     renderer.drawRoundedRect(x, y, w, h, 2, 8, true);
   }
-  const int tw = renderer.getTextWidth(fontId, label, EpdFontFamily::BOLD);
+  // Pack abbreviations are sized for the grid (tools/bible/epub2cpb.py fits_grid); a wider
+  // one from a hand-made pack is cut rather than drawn over its neighbours.
+  const std::string text = renderer.truncatedText(fontId, label, w - 4, EpdFontFamily::BOLD);
+  const int tw = renderer.getTextWidth(fontId, text.c_str(), EpdFontFamily::BOLD);
   const int th = renderer.getLineHeight(fontId);
-  renderer.drawText(fontId, x + (w - tw) / 2, y + (h - th) / 2, label, !selected, EpdFontFamily::BOLD);
+  renderer.drawText(fontId, x + (w - tw) / 2, y + (h - th) / 2, text.c_str(), !selected, EpdFontFamily::BOLD);
 }
 
 void BibleNavigatorActivity::drawBookGrid(int top, int left, int width, int height) {
@@ -291,12 +294,25 @@ void BibleNavigatorActivity::render(RenderLock&&) {
       break;
   }
 
+  // Long titles ("John Chapter 3 verse 16", German book names) step down a size or two, then
+  // truncate; the hint under them wraps onto a second line.
+  int titleId = titleFont;
+  for (int i = 3; i >= 1; i--) {
+    titleId = BibleFonts::IDS[i];
+    if (renderer.getTextWidth(titleId, title.c_str(), EpdFontFamily::BOLD) <= width) break;
+  }
+  title = renderer.truncatedText(titleId, title.c_str(), width, EpdFontFamily::BOLD);
+  const auto subtitleLines = renderer.wrappedText(labelFont, subtitle.c_str(), width, 2);
+
   const auto drawAll = [&]() {
     int y = top + 10;
-    renderer.drawText(titleFont, x, y, title.c_str(), true, EpdFontFamily::BOLD);
+    renderer.drawText(titleId, x, y, title.c_str(), true, EpdFontFamily::BOLD);
     y += renderer.getLineHeight(titleFont);
-    renderer.drawText(labelFont, x, y, subtitle.c_str());
-    y += renderer.getLineHeight(labelFont) + 6;
+    for (const auto& line : subtitleLines) {
+      renderer.drawText(labelFont, x, y, line.c_str());
+      y += renderer.getLineHeight(labelFont);
+    }
+    y += 6;
     renderer.drawLine(x, y, x + width, y, 2, true);
     y += 10;
     const int gridHeight = screenH - bottom - hintsHeight - 6 - y;

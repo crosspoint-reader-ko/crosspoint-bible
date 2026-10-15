@@ -29,6 +29,13 @@ const char* labelFor(const std::string& key) {
   if (key == "note") return tr(STR_BIBLE_INFO_NOTE);
   return nullptr;
 }
+
+// Pack metadata the firmware reads itself (docs/languages.md): not shown as rows.
+bool isInternal(const std::string& key) {
+  static const char* const keys[] = {"language_name", "direction",   "wrap",     "hyphenation",
+                                     "shaped",        "chapter_fmt", "psalm_fmt"};
+  return std::find(std::begin(keys), std::end(keys), key) != std::end(keys);
+}
 }  // namespace
 
 void BibleInfoActivity::onEnter() {
@@ -39,6 +46,8 @@ void BibleInfoActivity::onEnter() {
     auto& pack = BIBLE.getPack();
     rows.emplace_back(tr(STR_BIBLE_INFO_NAME), pack.title());
     for (const auto& [key, value] : pack.metadata()) {
+      if (isInternal(key)) continue;
+      if (key == "edition" && value == pack.title()) continue;  // same as the name row
       const char* label = labelFor(key);
       rows.emplace_back(label ? label : key, value);
     }
@@ -55,7 +64,9 @@ void BibleInfoActivity::onEnter() {
       headings.replace(headings.find("%d"), 2, withCommas(pack.totalHeadings()));
       rows.emplace_back(tr(STR_BIBLE_HEADINGS), headings);
     }
-    rows.emplace_back(tr(STR_BIBLE_INFO_LANGUAGE), pack.language());
+    const std::string languageName = BIBLE.meta("language_name");
+    rows.emplace_back(tr(STR_BIBLE_INFO_LANGUAGE),
+                      languageName.empty() ? pack.language() : languageName + " (" + pack.language() + ")");
     const std::string& path = BIBLE.packPath();
     rows.emplace_back(tr(STR_BIBLE_INFO_LOCATION),
                       path == BibleSession::BUILT_IN_PATH ? std::string(tr(STR_BIBLE_INFO_BUILT_IN)) : path);
