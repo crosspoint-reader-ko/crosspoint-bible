@@ -55,7 +55,9 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: build/fonts-cache
-          key: fonts-${{ hashFiles('tools/bible/fonts.lock.json') }}
+          key: fonts-${{ hashFiles('tools/bible/fonts.lock.json', 'tools/bible/shape.py') }}
+      - name: Fonts for pre-shaped scripts (Hindi, Malayalam)
+        run: python3 tools/bible/shape.py fetch
       - name: Build language bundles
         run: python3 tools/bible/bundle.py --otb build/otb
       - name: Built-in English pack is current
