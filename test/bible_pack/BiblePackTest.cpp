@@ -4,6 +4,7 @@
 
 #include <cstdlib>
 #include <fstream>
+#include <iterator>
 
 #include "BiblePack.h"
 
@@ -76,6 +77,23 @@ TEST(BiblePack, Clamps) {
   EXPECT_EQ(r.verse, 2);
 }
 
+TEST(BiblePack, ReadsFromMemoryAcrossChapters) {
+  std::ifstream in(BIBLE_FIXTURE, std::ios::binary);
+  const std::vector<uint8_t> bytes((std::istreambuf_iterator<char>(in)), std::istreambuf_iterator<char>());
+  bible::MemorySource src(bytes.data(), static_cast<uint32_t>(bytes.size()));
+  bible::BiblePack pack;
+  ASSERT_TRUE(pack.open(&src));
+  std::string text;
+  // Alternate between chapters so every read swaps the cached block.
+  ASSERT_TRUE(pack.verseText(pack.verseIndex({65, 2, 2}), text));
+  EXPECT_EQ(text, "이장 이절");
+  ASSERT_TRUE(pack.verseText(pack.verseIndex({0, 1, 3}), text));
+  EXPECT_EQ(text, "셋째 절");
+  ASSERT_TRUE(pack.verseText(pack.verseIndex({0, 1, 1}), text));
+  EXPECT_EQ(text, "첫째 절");
+  EXPECT_FALSE(pack.verseText(330, text));
+}
+
 TEST(BiblePack, RejectsGarbage) {
   FileSource src(__FILE__);
   bible::BiblePack pack;
@@ -95,6 +113,10 @@ TEST(BiblePack, RealBible) {
   std::string text;
   ASSERT_TRUE(pack.verseText(pack.verseIndex({42, 3, 16}), text));
   EXPECT_EQ(text.rfind("하나님이 세상을 이처럼 사랑하사", 0), 0u);
+  ASSERT_TRUE(pack.verseText(pack.verseIndex({18, 119, 176}), text));
+  EXPECT_EQ(text.rfind("잃은 양 같이", 0), 0u);
+  ASSERT_TRUE(pack.verseText(pack.verseIndex({65, 22, 21}), text));
+  EXPECT_EQ(text, "주 예수의 은혜가 모든 자들에게 있을지어다 아멘");
 }
 
 }  // namespace

@@ -60,7 +60,10 @@ for sc in $scenarios; do
   [ -f "$steps" ] || { echo "FAIL $sc: no $steps"; fail=1; continue; }
   dir=$out/screen/$sc
   rm -rf "$dir"; mkdir -p "$dir"
-  python3 "$simsrc/x4prosim/mksd.py" "$dir/sd.img" 256 "$sd" > /dev/null \
+  # "# sd: empty" in a scenario boots without /bible on the card (built-in pack only).
+  sdsrc=$sd
+  if grep -q '^# sd: empty' "$steps"; then sdsrc=$out/sd-empty; mkdir -p "$sdsrc"; fi
+  python3 "$simsrc/x4prosim/mksd.py" "$dir/sd.img" 256 "$sdsrc" > /dev/null \
     || { echo "FAIL $sc: SD image"; fail=1; continue; }
 
   # Expand shot:NAME into PPM (compared) and PNG (for people) screendumps.

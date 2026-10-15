@@ -1,5 +1,7 @@
 #include "BiblePack.h"
 
+#include <InflateReader.h>
+
 #include <cstring>
 
 namespace bible {
@@ -9,10 +11,10 @@ namespace {
 constexpr char MAGIC[8] = {'C', 'P', 'B', 'I', 'B', 'L', 'E', '\0'};
 constexpr uint32_t HEADER_SIZE = 64;
 constexpr uint32_t BOOK_ENTRY_SIZE = 64;
-constexpr uint32_t CHAPTER_ENTRY_SIZE = 8;
+constexpr uint32_t CHAPTER_ENTRY_SIZE = 24;
 constexpr uint32_t HEADING_ENTRY_SIZE = 12;
-// Longest verse in 개역개정 (에 8:9) is under 1 KB; anything far beyond is a corrupt pack.
-constexpr uint32_t MAX_TEXT_LEN = 16 * 1024;
+// Verse offsets are u16, so no chapter block exceeds 64 KB (개역개정's largest, Psalm 119, is 17 KB).
+constexpr uint32_t MAX_BLOCK_SIZE = 0xFFFF;
 
 uint16_t u16(const uint8_t* p) { return static_cast<uint16_t>(p[0] | (p[1] << 8)); }
 uint32_t u32(const uint8_t* p) {
@@ -21,6 +23,12 @@ uint32_t u32(const uint8_t* p) {
 }
 
 }  // namespace
+
+bool MemorySource::readAt(uint32_t offset, void* dst, uint32_t length) {
+  if (offset > size || length > size - offset) return false;
+  memcpy(dst, bytes + offset, length);
+  return true;
+}
 
 bool BiblePack::open(ByteSource* source) {
   close();
@@ -38,11 +46,11 @@ bool BiblePack::open(ByteSource* source) {
   offFlags = u32(h + 36);
   offHeadings = u32(h + 40);
   headingCount = u32(h + 44);
-  offText = u32(h + 48);
-  textSize = u32(h + 52);
+  offBlocks = u32(h + 48);
+  maxRawSize = u32(h + 52);
   memcpy(lang, h + 56, 7);
   lang[7] = '\0';
-  if (nBooks == 0 || nBooks > 255 || chapterCount == 0 || verseCount == 0) return false;
+  if (nBooks == 0 || nBooks > 255 || chapterCount == 0 || verseCount == 0 || maxRawSize > MAX_BLOCK_SIZE) return false;
 
   char titleBuf[64] = {};
   if (!source->readAt(offTitle, titleBuf, sizeof(titleBuf) - 1)) return false;
@@ -77,18 +85,32 @@ void BiblePack::close() {
   src = nullptr;
   books.clear();
   packTitle.clear();
+  block.clear();
+  block.shrink_to_fit();
+  blockChapter = -1;
+}
+
+bool BiblePack::chapterAt(uint32_t index, Chapter& out) {
+  if (index >= chapterCount) return false;
+  uint8_t e[CHAPTER_ENTRY_SIZE];
+  if (!read(offChapters + index * CHAPTER_ENTRY_SIZE, e, sizeof(e))) return false;
+  out.index = index;
+  out.firstVerse = u32(e);
+  out.verseCount = u16(e + 4);
+  out.firstHeading = u16(e + 6);
+  out.blockOffset = u32(e + 8);
+  out.blockSize = u32(e + 12);
+  out.rawSize = u32(e + 16);
+  out.versesEnd = u32(e + 20);
+  return out.verseCount > 0 && out.firstVerse + out.verseCount <= verseCount && out.rawSize <= maxRawSize &&
+         out.versesEnd <= out.rawSize;
 }
 
 bool BiblePack::chapter(int bookIndex, int chapterNumber, Chapter& out) {
   if (bookIndex < 0 || bookIndex >= bookCount()) return false;
   const Book& b = books[bookIndex];
   if (chapterNumber < 1 || chapterNumber > b.chapterCount) return false;
-  uint8_t e[CHAPTER_ENTRY_SIZE];
-  if (!read(offChapters + (b.firstChapter + chapterNumber - 1) * CHAPTER_ENTRY_SIZE, e, sizeof(e))) return false;
-  out.firstVerse = u32(e);
-  out.verseCount = u16(e + 4);
-  out.firstHeading = u16(e + 6);
-  return out.verseCount > 0 && out.firstVerse + out.verseCount <= verseCount;
+  return chapterAt(b.firstChapter + chapterNumber - 1, out);
 }
 
 int BiblePack::verseCountOf(int bookIndex, int chapterNumber) {
@@ -114,16 +136,71 @@ Ref BiblePack::clamp(Ref ref) {
   return ref;
 }
 
+bool BiblePack::loadBlock(const Chapter& ch) {
+  if (blockChapter == static_cast<int32_t>(ch.index)) return true;
+  blockChapter = -1;
+  block.resize(ch.rawSize);
+  if (ch.rawSize == 0) {
+    blockInfo = ch;
+    blockChapter = static_cast<int32_t>(ch.index);
+    return true;
+  }
+  // Memory-mapped packs inflate straight from flash; SD packs read the compressed block first.
+  std::vector<uint8_t> compressed;
+  const uint8_t* in = nullptr;
+  if (const uint8_t* mapped = src->data()) {
+    in = mapped + offBlocks + ch.blockOffset;
+  } else {
+    compressed.resize(ch.blockSize);
+    if (!read(offBlocks + ch.blockOffset, compressed.data(), ch.blockSize)) return false;
+    in = compressed.data();
+  }
+  InflateReader inflater;
+  inflater.init(false);
+  inflater.setSource(in, ch.blockSize);
+  if (!inflater.read(block.data(), ch.rawSize)) return false;
+  blockInfo = ch;
+  blockChapter = static_cast<int32_t>(ch.index);
+  return true;
+}
+
+bool BiblePack::chapterOfVerse(uint32_t verseIndex, Chapter& out) {
+  if (blockChapter >= 0 && verseIndex >= blockInfo.firstVerse &&
+      verseIndex < blockInfo.firstVerse + blockInfo.verseCount) {
+    out = blockInfo;
+    return true;
+  }
+  // Binary search the chapter table for the last chapter starting at or before the verse.
+  uint32_t lo = 0, hi = chapterCount;
+  while (hi - lo > 1) {
+    const uint32_t mid = (lo + hi) / 2;
+    uint8_t e[4];
+    if (!read(offChapters + mid * CHAPTER_ENTRY_SIZE, e, sizeof(e))) return false;
+    if (u32(e) <= verseIndex) {
+      lo = mid;
+    } else {
+      hi = mid;
+    }
+  }
+  return chapterAt(lo, out) && verseIndex < out.firstVerse + out.verseCount;
+}
+
+uint32_t BiblePack::verseStart(uint32_t verseIndex) {
+  uint8_t e[2] = {};
+  read(offVerses + verseIndex * 2, e, sizeof(e));
+  return u16(e);
+}
+
 bool BiblePack::verseText(uint32_t verseIndex, std::string& out) {
   out.clear();
   if (verseIndex >= verseCount) return false;
-  uint8_t e[8];
-  if (!read(offVerses + verseIndex * 4, e, sizeof(e))) return false;
-  const uint32_t start = u32(e);
-  const uint32_t end = u32(e + 4);
-  if (end < start || end > textSize || end - start > MAX_TEXT_LEN) return false;
-  out.resize(end - start);
-  return end == start || read(offText + start, &out[0], end - start);
+  Chapter ch;
+  if (!chapterOfVerse(verseIndex, ch) || !loadBlock(ch)) return false;
+  const uint32_t start = verseStart(verseIndex);
+  const uint32_t end = verseIndex + 1 < ch.firstVerse + ch.verseCount ? verseStart(verseIndex + 1) : ch.versesEnd;
+  if (end < start || end > ch.versesEnd) return false;
+  out.assign(reinterpret_cast<const char*>(block.data()) + start, end - start);
+  return true;
 }
 
 uint8_t BiblePack::verseFlags(uint32_t verseIndex) {
@@ -141,14 +218,14 @@ bool BiblePack::chapterHeadings(const Chapter& ch, std::vector<Heading>& out) {
     const uint32_t verse = u32(e);
     if (verse >= endVerse) break;
     if (verse < ch.firstVerse) continue;
+    if (!loadBlock(ch)) return false;
     const uint32_t off = u32(e + 4);
     const uint16_t len = u16(e + 8);
-    if (off + len > textSize) return false;
+    if (off < ch.versesEnd || off + len > ch.rawSize) return false;
     Heading h;
     h.verseIndex = verse;
     h.kind = static_cast<HeadingKind>(e[10]);
-    h.text.resize(len);
-    if (len && !read(offText + off, &h.text[0], len)) return false;
+    h.text.assign(reinterpret_cast<const char*>(block.data()) + off, len);
     out.push_back(std::move(h));
   }
   return true;

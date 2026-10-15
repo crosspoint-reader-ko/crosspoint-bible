@@ -7,6 +7,7 @@
 #include <BiblePack.h>
 #include <HalStorage.h>
 
+#include <memory>
 #include <string>
 
 class SdByteSource final : public bible::ByteSource {
@@ -32,7 +33,10 @@ class BibleSession {
   static constexpr const char* STATE_PATH = "/.crosspoint/bible.bin";
   static constexpr int LINE_SPACING_COUNT = 3;
 
-  // Opens the first .cpb in /bible (sorted by name). Cheap when already open.
+  static constexpr const char* BUILT_IN_PATH = "(built-in)";
+
+  // Opens the first .cpb in /bible (sorted by name), else the pack built into the
+  // firmware. Cheap when already open.
   bool ensureOpen();
   void close();
   bool isOpen() const { return pack.isOpen(); }
@@ -57,6 +61,7 @@ class BibleSession {
 
  private:
   SdByteSource source;
+  std::unique_ptr<bible::MemorySource> builtIn;
   bible::BiblePack pack;
   std::string path;
 };

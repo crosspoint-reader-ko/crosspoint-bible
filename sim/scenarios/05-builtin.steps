@@ -1,0 +1,4 @@
+# sd: empty
+# No pack on the SD card: the reader opens the pack built into the firmware.
+wait:12
+shot:builtin

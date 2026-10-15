@@ -1,10 +1,15 @@
 add_executable(BiblePackTest
   BiblePackTest.cpp
   ${REPO_ROOT}/lib/BiblePack/BiblePack.cpp
+  ${REPO_ROOT}/lib/InflateReader/InflateReader.cpp
+  ${REPO_ROOT}/lib/uzlib/src/tinflate.c
+  uzlib_checksum_stubs.c
 )
 
 target_include_directories(BiblePackTest PRIVATE
   ${REPO_ROOT}/lib/BiblePack
+  ${REPO_ROOT}/lib/InflateReader
+  ${REPO_ROOT}/lib/uzlib/src
 )
 
 target_compile_definitions(BiblePackTest PRIVATE

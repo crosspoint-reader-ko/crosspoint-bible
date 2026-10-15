@@ -11,13 +11,16 @@ Xteink X4/X3용 성경 전용 펌웨어. [CrossPoint 한국어 펌웨어](https:
 
 ## 성경 넣기
 
-성경 본문은 펌웨어에 들어 있지 않다. 가지고 있는 성경 EPUB을 팩으로 바꿔 SD 카드에 넣는다.
+성경 본문은 저장소에 없다. 가지고 있는 성경 EPUB을 팩(`.cpb`)으로 바꿔 쓴다.
+
+- **펌웨어에 내장(기본)**: 빌드하면 `scripts/embed_bible_pack.py`가 EPUB을 변환해 펌웨어에 넣는다. EPUB은 `BIBLE_EPUB`, `platformio.local.ini`의 `custom_bible_epub`, iCloud Drive `Books/_성경` 순으로 찾는다. 이 펌웨어 파일에는 성경 본문이 들어 있으니 개인용으로만 쓴다. `BIBLE_EMBED=0`이면 넣지 않는다.
+- **SD 카드**: 직접 변환해 SD의 `/bible/`에 넣는다. SD 팩이 있으면 내장 팩보다 먼저 쓴다.
 
 ```sh
 python3 tools/bible/epub2cpb.py "성경전서 개역개정판.epub" krv.cpb --title 개역개정
 ```
 
-`krv.cpb`를 SD 카드의 `/bible/` 폴더에 복사한다. 형식은 [docs/bible-pack-format.md](docs/bible-pack-format.md).
+형식은 [docs/bible-pack-format.md](docs/bible-pack-format.md).
 
 ## 빌드
 
@@ -34,7 +37,7 @@ python3 tools/bible/epub2cpb.py "성경전서 개역개정판.epub" krv.cpb --ti
 python3 tools/bible/test_epub2cpb.py                       # 변환기
 cmake -S test -B build/test && cmake --build build/test -j8 && ctest --test-dir build/test
 BIBLE_CPB=krv.cpb ./build/test/bible_pack/BiblePackTest    # 실제 팩으로 추가 확인
-sim/screen-test.sh -b                                       # 에뮬레이터 화면 테스트
+sim/screen-test.sh -b                                       # 에뮬레이터 화면 테스트 (05-builtin은 빈 SD로 내장 팩 확인)
 ```
 
 `sim/screen-test.sh`는 작업 공간의 x4prosim 에뮬레이터(`../x4prosim`)로 펌웨어를 부팅해 `sim/scenarios/*.steps`를 돌리고 `sim/golden/`과 비교한다. SD 카드에 넣을 팩은 `BIBLE_EPUB`(기본: iCloud Drive `Books/_성경`의 EPUB)에서 만든다. 저작권이 있는 본문이므로 팩, 스크린샷, golden(`sim/out/`, `sim/golden/`)은 커밋하지 않는다.

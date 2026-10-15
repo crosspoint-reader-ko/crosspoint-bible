@@ -91,8 +91,22 @@ class Epub2CpbTest(unittest.TestCase):
 
     def test_header(self):
         magic, ver, nb, nc, nv = struct.unpack_from("<8sHHII", self.pack)
-        self.assertEqual((magic, ver, nb, nc, nv), (epub2cpb.MAGIC, 1, 66, 132, 330))
+        self.assertEqual((magic, ver, nb, nc, nv), (epub2cpb.MAGIC, 2, 66, 132, 330))
         self.assertEqual(self.pack[56:58], b"ko")
+
+    def test_chapter_blocks_round_trip(self):
+        import zlib
+        p = self.pack
+        chapters_off, verses_off = struct.unpack_from("<II", p, 28)
+        blocks_off = struct.unpack_from("<I", p, 48)[0]
+        # Book 1, chapter 1: verses 0..2.
+        first, count, _, comp_off, comp_size, raw_size, verses_end = struct.unpack_from("<IHHIIII", p, chapters_off)
+        raw = zlib.decompress(p[blocks_off + comp_off : blocks_off + comp_off + comp_size], -15)
+        self.assertEqual(len(raw), raw_size)
+        starts = [struct.unpack_from("<H", p, verses_off + 2 * i)[0] for i in range(count)] + [verses_end]
+        texts = [raw[starts[i] : starts[i + 1]].decode() for i in range(count)]
+        self.assertEqual(texts, ["첫째 절", "둘째 절 끝", "셋째 절"])
+        self.assertTrue(raw[verses_end:].decode().startswith("소제목 1"))
 
 
 if __name__ == "__main__":

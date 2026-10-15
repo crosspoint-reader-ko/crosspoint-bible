@@ -1,6 +1,7 @@
 #pragma once
 
-// Reader for CrossPoint Bible packs (.cpb), written by tools/bible/epub2cpb.py.
+// Reader for CrossPoint Bible packs (.cpb, format 2: one raw-deflate block per chapter),
+// written by tools/bible/epub2cpb.py.
 // Format: docs/bible-pack-format.md. All indices here are 0-based unless named
 // "chapter"/"verse" (those are the 1-based numbers people read).
 
@@ -16,6 +17,20 @@ class ByteSource {
  public:
   virtual ~ByteSource() = default;
   virtual bool readAt(uint32_t offset, void* dst, uint32_t length) = 0;
+  // The whole pack when it is memory-mapped (built into flash), else nullptr.
+  virtual const uint8_t* data() const { return nullptr; }
+};
+
+// A pack already in memory, e.g. linked into the firmware image.
+class MemorySource final : public ByteSource {
+ public:
+  MemorySource(const uint8_t* bytes, uint32_t size) : bytes(bytes), size(size) {}
+  bool readAt(uint32_t offset, void* dst, uint32_t length) override;
+  const uint8_t* data() const override { return bytes; }
+
+ private:
+  const uint8_t* bytes;
+  uint32_t size;
 };
 
 enum VerseFlag : uint8_t {
@@ -45,9 +60,14 @@ struct Book {
 };
 
 struct Chapter {
+  uint32_t index = 0;       // index into the chapter table
   uint32_t firstVerse = 0;  // global verse index
   uint16_t verseCount = 0;
   uint16_t firstHeading = 0;  // first heading whose verse index >= firstVerse
+  uint32_t blockOffset = 0;   // compressed block, relative to the block section
+  uint32_t blockSize = 0;
+  uint32_t rawSize = 0;    // uncompressed block size
+  uint32_t versesEnd = 0;  // end of the last verse's text in the block (headings follow)
 };
 
 struct Heading {
@@ -58,7 +78,7 @@ struct Heading {
 
 class BiblePack {
  public:
-  static constexpr uint16_t FORMAT_VERSION = 1;
+  static constexpr uint16_t FORMAT_VERSION = 2;
 
   // Reads and validates the header and book table. The source must outlive the pack.
   bool open(ByteSource* source);
@@ -72,6 +92,8 @@ class BiblePack {
   uint32_t totalVerses() const { return verseCount; }
 
   bool chapter(int bookIndex, int chapterNumber, Chapter& out);
+  // Chapter entry by table index.
+  bool chapterAt(uint32_t index, Chapter& out);
   int verseCountOf(int bookIndex, int chapterNumber);
 
   // Global verse index for a reference, or -1 if it does not exist.
@@ -79,6 +101,7 @@ class BiblePack {
   // Clamp a reference into range (book, then chapter, then verse).
   Ref clamp(Ref ref);
 
+  // Decompresses the verse's chapter once and keeps it until another chapter is read.
   bool verseText(uint32_t verseIndex, std::string& out);
   uint8_t verseFlags(uint32_t verseIndex);
   // Headings above verses [firstVerse, firstVerse + count) of the given chapter.
@@ -86,6 +109,9 @@ class BiblePack {
 
  private:
   bool read(uint32_t offset, void* dst, uint32_t length) { return src && src->readAt(offset, dst, length); }
+  bool loadBlock(const Chapter& ch);
+  bool chapterOfVerse(uint32_t verseIndex, Chapter& out);
+  uint32_t verseStart(uint32_t verseIndex);
 
   ByteSource* src = nullptr;
   std::vector<Book> books;
@@ -98,8 +124,13 @@ class BiblePack {
   uint32_t offVerses = 0;
   uint32_t offFlags = 0;
   uint32_t offHeadings = 0;
-  uint32_t offText = 0;
-  uint32_t textSize = 0;
+  uint32_t offBlocks = 0;
+  uint32_t maxRawSize = 0;
+
+  // Decompressed block of the last chapter read.
+  std::vector<uint8_t> block;
+  int32_t blockChapter = -1;
+  Chapter blockInfo;
 };
 
 }  // namespace bible

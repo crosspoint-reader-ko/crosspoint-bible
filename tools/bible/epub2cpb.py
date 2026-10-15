@@ -16,13 +16,14 @@ import re
 import struct
 import sys
 import zipfile
+import zlib
 from html.parser import HTMLParser
 
 MAGIC = b"CPBIBLE\0"
-VERSION = 1
+VERSION = 2
 HEADER_SIZE = 64
 BOOK_ENTRY_SIZE = 64
-CHAPTER_ENTRY_SIZE = 8
+CHAPTER_ENTRY_SIZE = 24
 HEADING_ENTRY_SIZE = 12
 
 # Verse flags
@@ -204,26 +205,13 @@ def parse_epub(path):
 
 
 def build_pack(verses, headings, book_names, title, lang):
-    # Text blob: verse texts, then heading texts.
-    blob = bytearray()
-    verse_offsets = []
-    for v in verses:
-        verse_offsets.append(len(blob))
-        blob += v.text().encode("utf-8")
-    verse_offsets.append(len(blob))
-    heading_entries = []
-    for idx, kind, text in headings:
-        b = text.encode("utf-8")
-        heading_entries.append((idx, len(blob), len(b), kind))
-        blob += b
-
     # Chapters and books.
-    chapters = []  # (first verse index, verse count, first heading index)
+    chapters = []  # [first verse index, verse count, first heading index, book, chapter]
     books = {}  # book -> [first chapter index, chapter count]
     hi = 0
     for i, v in enumerate(verses):
         if not chapters or (v.book, v.chapter) != (chapters[-1][3], chapters[-1][4]):
-            while hi < len(heading_entries) and heading_entries[hi][0] < i:
+            while hi < len(headings) and headings[hi][0] < i:
                 hi += 1
             chapters.append([i, 0, hi, v.book, v.chapter])
             b = books.setdefault(v.book, [len(chapters) - 1, 0])
@@ -233,6 +221,35 @@ def build_pack(verses, headings, book_names, title, lang):
     if sorted(books) != list(range(1, 67)):
         raise ValueError(f"expected 66 books, got {sorted(books)}")
 
+    # One raw-deflate block per chapter: its verse texts, then its heading texts.
+    # Verse and heading offsets are relative to the uncompressed block.
+    verse_offsets = [0] * len(verses)
+    heading_entries = []
+    blocks = bytearray()
+    chapter_entries = []
+    max_raw = 0
+    for ci, (first, count, first_heading, _, _) in enumerate(chapters):
+        raw = bytearray()
+        for vi in range(first, first + count):
+            verse_offsets[vi] = len(raw)
+            raw += verses[vi].text().encode("utf-8")
+        verses_end = len(raw)
+        h = first_heading
+        while h < len(headings) and headings[h][0] < first + count:
+            idx, kind, text = headings[h]
+            b = text.encode("utf-8")
+            heading_entries.append((idx, len(raw), len(b), kind))
+            raw += b
+            h += 1
+        if len(raw) > 0xFFFF:
+            raise ValueError(f"chapter {ci} is {len(raw)} bytes; verse offsets are u16")
+        comp = zlib.compressobj(level=9, wbits=-15)
+        data = comp.compress(bytes(raw)) + comp.flush()
+        chapter_entries.append((first, count, first_heading, len(blocks), len(data), len(raw), verses_end))
+        blocks += data
+        max_raw = max(max_raw, len(raw))
+    assert len(heading_entries) == len(headings)
+
     book_table = bytearray()
     for bk in range(1, 67):
         first, count = books[bk]
@@ -241,8 +258,9 @@ def build_pack(verses, headings, book_names, title, lang):
         book_table += struct.pack("<BBHI40s16s", 0 if bk <= 39 else 1, bk, count, first, name, abbr)
         assert len(book_table) % BOOK_ENTRY_SIZE == 0
 
-    chapter_table = b"".join(struct.pack("<IHH", c[0], c[1], c[2]) for c in chapters)
-    verse_table = b"".join(struct.pack("<I", o) for o in verse_offsets)
+    chapter_table = b"".join(struct.pack("<IHHIIII", *c) for c in chapter_entries)
+    assert len(chapter_table) == len(chapters) * CHAPTER_ENTRY_SIZE
+    verse_table = b"".join(struct.pack("<H", o) for o in verse_offsets)
     flag_table = bytes(v.flags for v in verses)
     heading_table = b"".join(struct.pack("<IIHBB", idx, off, ln, kind, 0) for idx, off, ln, kind in heading_entries)
     title_b = title.encode("utf-8")[:63] + b"\0"
@@ -257,7 +275,7 @@ def build_pack(verses, headings, book_names, title, lang):
         ("verses", verse_table),
         ("flags", flag_table),
         ("headings", heading_table),
-        ("text", bytes(blob)),
+        ("blocks", bytes(blocks)),
     ):
         pad = (-(off + len(body))) % 4
         body += b"\0" * pad
@@ -278,8 +296,8 @@ def build_pack(verses, headings, book_names, title, lang):
         sections["flags"],
         sections["headings"],
         len(heading_entries),
-        sections["text"],
-        len(blob),
+        sections["blocks"],
+        max_raw,
         lang.encode("ascii")[:7],
     )
     header += b"\0" * (HEADER_SIZE - len(header))

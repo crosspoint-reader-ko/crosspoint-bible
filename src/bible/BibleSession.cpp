@@ -4,12 +4,17 @@
 #include <Logging.h>
 
 #include <algorithm>
+#include <memory>
 #include <cstring>
 #include <vector>
 
 #include "BibleFonts.h"
 
 BibleSession BIBLE;
+
+// Pack linked into the firmware by scripts/embed_bible_pack.py (empty when built without one).
+extern "C" const uint8_t bible_pack_start[];
+extern "C" const uint8_t bible_pack_end[];
 
 namespace {
 constexpr char STATE_MAGIC[4] = {'C', 'P', 'B', 'S'};
@@ -57,12 +62,26 @@ bool BibleSession::ensureOpen() {
     LOG_ERR("BIBLE", "Not a Bible pack: %s", p.c_str());
     source.close();
   }
+  const auto size = static_cast<uint32_t>(bible_pack_end - bible_pack_start);
+  if (size > 0) {
+    builtIn = std::make_unique<bible::MemorySource>(bible_pack_start, size);
+    if (pack.open(builtIn.get())) {
+      path = BUILT_IN_PATH;
+      position = pack.clamp(position);
+      LOG_INF("BIBLE", "Opened built-in pack (%s, %u verses)", pack.title().c_str(),
+              static_cast<unsigned>(pack.totalVerses()));
+      return true;
+    }
+    LOG_ERR("BIBLE", "Built-in pack is not readable");
+    builtIn.reset();
+  }
   return false;
 }
 
 void BibleSession::close() {
   pack.close();
   source.close();
+  builtIn.reset();
   path.clear();
 }
 
