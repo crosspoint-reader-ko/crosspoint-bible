@@ -10,6 +10,8 @@ Xteink X4/X3용 성경 전용 펌웨어. [CrossPoint 한국어 펌웨어](https:
 - 양쪽 정렬은 글자 단위로 줄을 바꾸고 남는 폭을 글자 사이에 나눈다. 마침표 같은 문장 부호는 줄 첫머리에 오지 않는다.
 - 쪽을 넘길 때 화면 갱신은 두 번(흑백 + 글자 다듬기 회색조)이다. 글자 다듬기를 끄면 한 번이다. 잔상 정리는 설정의 새로고침 주기마다 한다.
 
+부팅·절전 화면은 검은 표지(세 줄 십자가와 테두리, `tools/bible/make_cover.py`가 그려 `src/images/BibleCover.h`로 만든다)에 CrossPoint Bible을 얹는다.
+
 계획과 진행은 [docs/bible-plan.md](docs/bible-plan.md)에 있다.
 
 ## 성경 넣기

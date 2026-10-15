@@ -1,0 +1,5 @@
+# Hold power: the sleep screen shows the Bible cover.
+wait:10
+press:power:2500
+wait:8
+shot:sleep
