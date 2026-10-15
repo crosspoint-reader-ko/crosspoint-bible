@@ -29,6 +29,8 @@ press:right:100
 wait:1.5
 press:right:100
 wait:1.5
+press:right:100
+wait:1.5
 press:confirm:100
 wait:1.5
 wait:2

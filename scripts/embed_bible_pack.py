@@ -1,17 +1,21 @@
 """PlatformIO pre-script: build the Bible pack into the firmware image.
 
-Converts the Bible EPUB with tools/bible/epub2cpb.py into build/bible/embedded.cpb
+Converts the Bible source with tools/bible/epub2cpb.py into build/bible/<hash>.cpb
 and writes src/bible/generated/EmbeddedPack.S, which .incbin's it between the
 symbols bible_pack_start and bible_pack_end (read by src/bible/BibleSession.cpp).
 
-EPUB lookup, first match wins:
-  1. $BIBLE_EPUB
+Source lookup, first match wins:
+  1. $BIBLE_EPUB (an EPUB or getBible JSON, converted here)
   2. custom_bible_epub in the env (e.g. in platformio.local.ini)
-  3. the first .epub in iCloud Drive Books/_성경
-Set BIBLE_EMBED=0, or have no EPUB, to build without a pack (the reader then
-needs a .cpb in /bible on the SD card).
+  3. $BIBLE_PACK (a ready .cpb)
+  4. the first .epub in iCloud Drive Books/_성경 (a maintainer's personal copy)
+  5. data/bible/krv1961.cpb: 개역한글 (1952/1961, public domain), what CI and
+     releases build with
+Set BIBLE_EMBED=0 to build without a pack (the reader then needs a .cpb in
+/bible on the SD card).
 
-The pack and the generated .S are copyrighted text and stay out of git.
+Packs converted here and the generated .S stay out of git: a personal EPUB may
+be copyrighted (e.g. 개역개정).
 """
 
 import glob
@@ -24,23 +28,31 @@ Import("env")  # noqa: F821  (PlatformIO SCons global)
 
 project = env.subst("$PROJECT_DIR")  # noqa: F821
 converter = os.path.join(project, "tools", "bible", "epub2cpb.py")
-pack = os.path.join(project, "build", "bible", "embedded.cpb")
 asm = os.path.join(project, "src", "bible", "generated", "EmbeddedPack.S")
 
 
-def find_epub():
-    candidates = [os.environ.get("BIBLE_EPUB", "")]
+REPO_PACK = os.path.join(project, "data", "bible", "krv1961.cpb")
+
+
+def find_source():
+    """(path, is_ready_pack) of the first source that exists, or (None, False)."""
+    candidates = [(os.environ.get("BIBLE_EPUB", ""), False)]
     try:
-        candidates.append(env.GetProjectOption("custom_bible_epub", ""))  # noqa: F821
+        candidates.append((env.GetProjectOption("custom_bible_epub", ""), False))  # noqa: F821
     except Exception:
         pass
-    candidates += sorted(
-        glob.glob(os.path.expanduser("~/Library/Mobile Documents/com~apple~CloudDocs/Books/_성경/*.epub"))
-    )
-    return next((c for c in candidates if c and os.path.isfile(c)), None)
+    candidates.append((os.environ.get("BIBLE_PACK", ""), True))
+    candidates += [
+        (p, False)
+        for p in sorted(glob.glob(os.path.expanduser("~/Library/Mobile Documents/com~apple~CloudDocs/Books/_성경/*.epub")))
+    ]
+    candidates.append((REPO_PACK, True))
+    return next(((p, ready) for p, ready in candidates if p and os.path.isfile(p)), (None, False))
 
 
 def build_pack(epub):
+    # One cached pack per source, so switching sources never reuses a stale conversion.
+    pack = os.path.join(project, "build", "bible", hashlib.sha1(epub.encode()).hexdigest()[:12] + ".cpb")
     os.makedirs(os.path.dirname(pack), exist_ok=True)
     fresh = os.path.isfile(pack) and os.path.getmtime(pack) >= max(
         os.path.getmtime(epub), os.path.getmtime(converter)
@@ -79,7 +91,13 @@ def write_asm(path):
     print(f"[bible] {note}")
 
 
-epub = find_epub() if os.environ.get("BIBLE_EMBED", "1") != "0" else None
-if epub is None and os.environ.get("BIBLE_EMBED", "1") != "0":
-    print("[bible] warning: no Bible EPUB found; building without a built-in pack")
-write_asm(build_pack(epub) if epub else None)
+if os.environ.get("BIBLE_EMBED", "1") == "0":
+    write_asm(None)
+else:
+    source, ready = find_source()
+    if source is None:
+        print("[bible] warning: no Bible source found; building without a built-in pack")
+        write_asm(None)
+    else:
+        print(f"[bible] source: {source}")
+        write_asm(source if ready else build_pack(source))

@@ -7,6 +7,7 @@
 
 #include <cstdint>
 #include <string>
+#include <utility>
 #include <vector>
 
 namespace bible {
@@ -86,6 +87,10 @@ class BiblePack {
   bool isOpen() const { return src != nullptr; }
 
   const std::string& title() const { return packTitle; }
+  // key/value pairs stored after the title (edition, copyright, license, source, version, note).
+  const std::vector<std::pair<std::string, std::string>>& metadata() const { return meta; }
+  uint32_t totalChapters() const { return chapterCount; }
+  uint32_t totalHeadings() const { return headingCount; }
   const char* language() const { return lang; }
   int bookCount() const { return static_cast<int>(books.size()); }
   const Book& book(int index) const { return books[index]; }
@@ -116,6 +121,7 @@ class BiblePack {
   ByteSource* src = nullptr;
   std::vector<Book> books;
   std::string packTitle;
+  std::vector<std::pair<std::string, std::string>> meta;
   char lang[8] = {};
   uint32_t chapterCount = 0;
   uint32_t verseCount = 0;

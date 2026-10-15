@@ -54,7 +54,8 @@ def convert(tmp):
     with open(epub, "wb") as f:
         f.write(make_epub())
     verses, headings, names = epub2cpb.parse_epub(epub)
-    pack, chapters = epub2cpb.build_pack(verses, headings, names, "테스트", "ko")
+    pack, chapters = epub2cpb.build_pack(verses, headings, names, "테스트", "ko",
+                                         {"edition": "합성 본문", "license": "Public Domain"})
     return verses, headings, pack, chapters
 
 
@@ -121,3 +122,21 @@ if __name__ == "__main__":
         print(f"wrote {args.write_fixture} ({len(pack)} bytes)")
     else:
         unittest.main(argv=[sys.argv[0]] + rest)
+
+
+class GetBibleJsonTest(unittest.TestCase):
+    def test_fills_missing_verses(self):
+        import json
+        books = []
+        for bk in range(1, 67):
+            verses = [{"chapter": 1, "verse": n, "text": f"절{n} "} for n in (1, 2, 4)]
+            books.append({"nr": bk, "name": f"책{bk}", "chapters": [{"chapter": 1, "verses": verses}]})
+        with tempfile.TemporaryDirectory() as t:
+            path = os.path.join(t, "b.json")
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump({"description": "테스트판", "distribution_license": "Public Domain", "books": books}, f)
+            verses, headings, names, meta = epub2cpb.parse_getbible(path)
+        first = [(v.verse, v.text()) for v in verses[:4]]
+        self.assertEqual(first, [(1, "절1"), (2, "절2"), (3, ""), (4, "절4")])
+        self.assertEqual(meta["edition"], "테스트판")
+        self.assertEqual(names[1], "책1")

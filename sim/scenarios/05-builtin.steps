@@ -1,4 +1,29 @@
 # sd: empty
-# No pack on the SD card: the reader opens the pack built into the firmware.
+# No pack on the SD card: the reader opens the pack built into the firmware,
+# and the Bible info screen (menu row 9) describes it.
 wait:12
 shot:builtin
+press:back:100
+wait:1.5
+press:right:100
+wait:1.5
+press:right:100
+wait:1.5
+press:right:100
+wait:1.5
+press:right:100
+wait:1.5
+press:right:100
+wait:1.5
+press:right:100
+wait:1.5
+press:right:100
+wait:1.5
+press:right:100
+wait:1.5
+press:right:100
+wait:1.5
+press:confirm:100
+wait:1.5
+wait:2
+shot:info

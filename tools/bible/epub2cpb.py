@@ -1,17 +1,29 @@
 #!/usr/bin/env python3
-"""Convert a Bible EPUB into a CrossPoint Bible pack (.cpb).
+"""Convert a Bible EPUB or getBible JSON into a CrossPoint Bible pack (.cpb).
 
 The pack gives the firmware O(1) access to any book/chapter/verse without
 parsing HTML on the device. Layout (little endian) is described in
 docs/bible-pack-format.md and mirrored by lib/BiblePack/BiblePack.h.
 
-usage: epub2cpb.py BIBLE.epub OUT.cpb [--title 개역개정] [--lang ko] [--charset OUT.txt]
+usage: epub2cpb.py BIBLE.epub|BIBLE.json OUT.cpb [--title 개역개정] [--lang ko]
+                  [--meta key=value ...] [--charset OUT.txt]
 
-Supported source: the "ESV template" Korean EPUB (bNN.MM.Name.text.html files,
-span.chapter-num / span.verse-num markers, p.heading section titles).
+Supported sources:
+  - the "ESV template" Korean EPUB (bNN.MM.Name.text.html files,
+    span.chapter-num / span.verse-num markers, p.heading section titles);
+  - getBible v2 JSON (https://api.getbible.net/v2/<translation>.json), e.g. the
+    public-domain 개역한글 (korean.json). It has no section titles; verse numbers
+    missing inside a chapter become empty verses so numbering stays right.
+
+Metadata (shown on the device's Bible info screen) is stored after the title as
+"key<TAB>value" lines: edition, copyright, license, source, version, note.
+EPUB packs take it from the book's copyright pages, JSON packs from the file;
+--meta overrides or adds keys.
 """
 
 import argparse
+import html
+import json
 import re
 import struct
 import sys
@@ -204,7 +216,62 @@ def parse_epub(path):
     return parser.verses, parser.headings, book_names
 
 
-def build_pack(verses, headings, book_names, title, lang):
+def html_text(raw):
+    text = html.unescape(re.sub(r"<[^>]+>", "\n", raw))
+    return [norm_space(t).strip() for t in text.split("\n") if t.strip()]
+
+
+def epub_meta(path):
+    """Edition, copyright and version lines from the EPUB's front matter, when present."""
+    z = zipfile.ZipFile(path)
+    meta = {}
+    for n in z.namelist():
+        base = n.rsplit("/", 1)[-1].lower()
+        if base not in ("copyright.html", "notice.html"):
+            continue
+        lines = html_text(z.read(n).decode("utf-8", "replace"))
+        for i, line in enumerate(lines):
+            if "©" in line and "copyright" not in meta:
+                meta["copyright"] = line
+            elif line.startswith("Version") and "version" not in meta:
+                # "Version:" and its value are often separate elements.
+                value = line.replace("Version:", "").strip() or (lines[i + 1] if i + 1 < len(lines) else "")
+                meta["version"] = value
+            elif "성경전서" in line and "(" in line and "edition" not in meta:
+                meta["edition"] = line
+    return meta
+
+
+def parse_getbible(path):
+    """Verses from a getBible v2 JSON file (books -> chapters -> verses)."""
+    with open(path, encoding="utf-8") as f:
+        d = json.load(f)
+    verses, book_names = [], {}
+    for bk in d["books"]:
+        number = int(bk["nr"])
+        book_names[number] = bk["name"]
+        for ch in bk["chapters"]:
+            texts = {int(v["verse"]): norm_space(v["text"]).strip() for v in ch["verses"]}
+            for n in range(1, max(texts) + 1):
+                v = Verse(number, int(ch["chapter"]), n, VF_PARAGRAPH if n == 1 else 0)
+                v.parts.append(texts.get(n, ""))
+                verses.append(v)
+    meta = {
+        "edition": d.get("description") or d.get("translation") or "",
+        "license": d.get("distribution_license") or "",
+        "source": "; ".join(x for x in (d.get("distribution_about"), "getBible (api.getbible.net)") if x),
+        "version": " ".join(x for x in (d.get("distribution_version"), d.get("distribution_version_date")) if x),
+    }
+    return verses, [], book_names, {k: v for k, v in meta.items() if v}
+
+
+def encode_meta(title, meta):
+    """Title, NUL, then key<TAB>value lines, NUL. Readers of the plain title stop at the first NUL."""
+    lines = "".join(f"{k}\t{v}\n" for k, v in meta.items() if v)
+    return title.encode("utf-8")[:63] + b"\0" + lines.encode("utf-8")[:1500] + b"\0"
+
+
+def build_pack(verses, headings, book_names, title, lang, meta=None):
     # Chapters and books.
     chapters = []  # [first verse index, verse count, first heading index, book, chapter]
     books = {}  # book -> [first chapter index, chapter count]
@@ -263,7 +330,7 @@ def build_pack(verses, headings, book_names, title, lang):
     verse_table = b"".join(struct.pack("<H", o) for o in verse_offsets)
     flag_table = bytes(v.flags for v in verses)
     heading_table = b"".join(struct.pack("<IIHBB", idx, off, ln, kind, 0) for idx, off, ln, kind in heading_entries)
-    title_b = title.encode("utf-8")[:63] + b"\0"
+    title_b = encode_meta(title, meta or {})
 
     off = HEADER_SIZE
     sections = {}
@@ -307,15 +374,23 @@ def build_pack(verses, headings, book_names, title, lang):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("epub")
+    ap.add_argument("source", help="Bible EPUB or getBible JSON")
     ap.add_argument("out")
     ap.add_argument("--title", default="개역개정")
     ap.add_argument("--lang", default="ko")
+    ap.add_argument("--meta", action="append", default=[], help="key=value metadata (repeatable)")
     ap.add_argument("--charset", help="write every code point used (one string) to this file, for font subsetting")
     args = ap.parse_args()
 
-    verses, headings, book_names = parse_epub(args.epub)
-    pack, chapters = build_pack(verses, headings, book_names, args.title, args.lang)
+    if args.source.lower().endswith(".json"):
+        verses, headings, book_names, meta = parse_getbible(args.source)
+    else:
+        verses, headings, book_names = parse_epub(args.source)
+        meta = epub_meta(args.source)
+    for kv in args.meta:
+        key, _, value = kv.partition("=")
+        meta[key.strip()] = value.strip()
+    pack, chapters = build_pack(verses, headings, book_names, args.title, args.lang, meta)
     with open(args.out, "wb") as f:
         f.write(pack)
     empty = [f"{v.book}:{v.chapter}:{v.verse}" for v in verses if not v.text()]

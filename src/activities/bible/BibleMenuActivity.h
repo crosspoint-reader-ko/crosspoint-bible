@@ -30,6 +30,7 @@ class BibleMenuActivity final : public Activity {
     HEADINGS,
     SMOOTHING,
     ORIENTATION,
+    INFO,
     SETTINGS_ROW,
     ROW_COUNT
   };

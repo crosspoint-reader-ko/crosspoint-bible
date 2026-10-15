@@ -2,6 +2,7 @@
 
 #include <InflateReader.h>
 
+#include <algorithm>
 #include <cstring>
 
 namespace bible {
@@ -55,6 +56,25 @@ bool BiblePack::open(ByteSource* source) {
   char titleBuf[64] = {};
   if (!source->readAt(offTitle, titleBuf, sizeof(titleBuf) - 1)) return false;
   packTitle = titleBuf;
+
+  // Optional metadata after the title's NUL: "key<TAB>value" lines up to the next NUL.
+  meta.clear();
+  const uint32_t titleLen = static_cast<uint32_t>(packTitle.size()) + 1;
+  if (offBooks > offTitle + titleLen) {
+    std::string block(std::min<uint32_t>(offBooks - offTitle - titleLen, 2048), '\0');
+    if (source->readAt(offTitle + titleLen, &block[0], static_cast<uint32_t>(block.size()))) {
+      block.resize(strnlen(block.c_str(), block.size()));
+      size_t pos = 0;
+      while (pos < block.size()) {
+        size_t end = block.find('\n', pos);
+        if (end == std::string::npos) end = block.size();
+        const std::string line = block.substr(pos, end - pos);
+        const size_t tab = line.find('\t');
+        if (tab != std::string::npos && tab > 0) meta.emplace_back(line.substr(0, tab), line.substr(tab + 1));
+        pos = end + 1;
+      }
+    }
+  }
 
   books.resize(nBooks);
   uint8_t e[BOOK_ENTRY_SIZE];

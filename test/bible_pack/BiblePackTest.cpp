@@ -1,5 +1,5 @@
 // fixture.cpb comes from tools/bible/test_epub2cpb.py --write-fixture (synthetic text).
-// Set BIBLE_CPB to a real 개역개정 pack to also run the full-Bible checks.
+// Set BIBLE_CPB to a real pack (개역개정 or data/bible/krv1961.cpb) to also run the full-Bible checks.
 #include <gtest/gtest.h>
 
 #include <cstdlib>
@@ -37,6 +37,10 @@ TEST(BiblePack, OpensFixture) {
   EXPECT_STREQ(pack.book(65).abbr, "계");
   EXPECT_EQ(pack.book(39).testament, 1);
   EXPECT_EQ(pack.book(0).chapterCount, 2);
+  ASSERT_EQ(pack.metadata().size(), 2u);
+  EXPECT_EQ(pack.metadata()[0], (std::pair<std::string, std::string>{"edition", "합성 본문"}));
+  EXPECT_EQ(pack.metadata()[1].second, "Public Domain");
+  EXPECT_EQ(pack.totalChapters(), 132u);
 }
 
 TEST(BiblePack, ReadsVersesAndHeadings) {
@@ -107,7 +111,8 @@ TEST(BiblePack, RealBible) {
   FileSource src(path);
   bible::BiblePack pack;
   ASSERT_TRUE(pack.open(&src));
-  EXPECT_EQ(pack.totalVerses(), 31102u);
+  // 31,102 in the standard versification; the 개역한글 source lacks Psalm 72:20.
+  EXPECT_GE(pack.totalVerses(), 31101u);
   EXPECT_EQ(pack.book(18).chapterCount, 150);
   EXPECT_EQ(pack.verseCountOf(18, 119), 176);
   std::string text;
@@ -116,7 +121,7 @@ TEST(BiblePack, RealBible) {
   ASSERT_TRUE(pack.verseText(pack.verseIndex({18, 119, 176}), text));
   EXPECT_EQ(text.rfind("잃은 양 같이", 0), 0u);
   ASSERT_TRUE(pack.verseText(pack.verseIndex({65, 22, 21}), text));
-  EXPECT_EQ(text, "주 예수의 은혜가 모든 자들에게 있을지어다 아멘");
+  EXPECT_EQ(text.substr(text.size() - 6), "아멘");
 }
 
 }  // namespace

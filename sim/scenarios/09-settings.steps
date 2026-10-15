@@ -1,6 +1,8 @@
-# Settings after the cleanup: tabs, and alignment set to justified in the Reader tab (menu row 9 = settings).
+# Settings after the cleanup: tabs, and alignment set to justified in the Reader tab (menu row 10 = settings).
 wait:10
 press:back:100
+wait:1.5
+press:right:100
 wait:1.5
 press:right:100
 wait:1.5

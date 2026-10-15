@@ -3,9 +3,11 @@
 #include <FontCacheManager.h>
 #include <GfxRenderer.h>
 #include <I18n.h>
+#include <Memory.h>
 
 #include <algorithm>
 
+#include "BibleInfoActivity.h"
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
 #include "activities/reader/ReaderUtils.h"
@@ -83,6 +85,11 @@ void BibleMenuActivity::activate(int row) {
       SETTINGS.saveToFile();
       ReaderUtils::applyOrientation(renderer, SETTINGS.orientation);
       break;
+    case INFO:
+      if (auto info = makeUniqueNoThrow<BibleInfoActivity>(renderer, mappedInput)) {
+        startActivityForResult(std::move(info), [](const ActivityResult&) {});
+      }
+      return;
     case SETTINGS_ROW:
       activityManager.goToSettings();
       return;
@@ -127,7 +134,7 @@ void BibleMenuActivity::render(RenderLock&&) {
       StrId::STR_BIBLE_GOTO,      StrId::STR_BIBLE_ADD_BOOKMARK, StrId::STR_BIBLE_BOOKMARKS,
       StrId::STR_BIBLE_FONT_SIZE, StrId::STR_BIBLE_LINE_SPACING,
       StrId::STR_BIBLE_LAYOUT,    StrId::STR_BIBLE_HEADINGS,     StrId::STR_BIBLE_SMOOTHING,
-      StrId::STR_ORIENTATION,     StrId::STR_SETTINGS_TITLE,
+      StrId::STR_ORIENTATION,     StrId::STR_BIBLE_INFO,         StrId::STR_SETTINGS_TITLE,
   };
 
   const int titleFont = BibleFonts::IDS[3];
