@@ -172,25 +172,30 @@ def shaped_bible(data, code):
 
 def fit_bidi_abbreviations(data, entry, args):
     """Book-grid labels of Arabic-script and Hebrew packs, derived again so each fits a grid cell
-    in the language's system font (the grid draws with it). The firmware joins Arabic letters at
-    runtime, so the labels are measured shaped, with HarfBuzz."""
+    in every reader font of the language (Go to draws with it). The firmware joins Arabic letters
+    at runtime, so the labels are measured shaped, with HarfBuzz."""
     try:
         import uharfbuzz as hb
     except ImportError:
         return data
     verses, headings, names, abbrs, title, meta = data
-    path, _ = fonts.fetch(entry["ui"], args.cache)
-    face = hb.Face(hb.Blob.from_file_path(path))
-    font = hb.Font(face)
-    px = 14 * fonts.DPI / 72  # smallest UI size (BibleFonts::UI_POINTS)
+    px = 14 * fonts.DPI / 72  # smallest reader size used by Go to
+    shapers = []
+    for r in entry["reader"]:
+        path, _ = fonts.fetch(r["font"], args.cache)
+        face = hb.Face(hb.Blob.from_file_path(path))
+        shapers.append((face, hb.Font(face)))
 
     def fits(text):
-        buf = hb.Buffer()
-        buf.add_str(text)
-        buf.guess_segment_properties()
-        hb.shape(font, buf)
-        width = sum(p.x_advance for p in buf.glyph_positions) * px / face.upem
-        return width <= epub2cpb.GRID_LABEL_WIDTH - 4  # synthetic bold widens a little
+        for face, font in shapers:
+            buf = hb.Buffer()
+            buf.add_str(text)
+            buf.guess_segment_properties()
+            hb.shape(font, buf)
+            width = sum(p.x_advance for p in buf.glyph_positions) * px / face.upem
+            if width > epub2cpb.GRID_LABEL_WIDTH - 4:  # synthetic bold widens a little
+                return False
+        return True
 
     return verses, headings, names, epub2cpb.derive_abbreviations(names, fits=fits), title, meta
 

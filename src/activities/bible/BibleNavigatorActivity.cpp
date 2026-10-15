@@ -21,6 +21,9 @@ constexpr int MARGIN = 14;
 constexpr int CELL_GAP = 4;
 constexpr unsigned long PAGE_HOLD_MS = 600;
 constexpr unsigned long DIRECT_HOLD_MS = 600;
+// Go to draws in the reader font (serif), 14, 16 and 22 pt.
+constexpr int SERIF_COUNT = 3;
+constexpr int SERIF_IDS[SERIF_COUNT] = {BIBLE_14_FONT_ID, BIBLE_16_FONT_ID, BIBLE_22_FONT_ID};
 }  // namespace
 
 void BibleNavigatorActivity::onEnter() {
@@ -173,14 +176,14 @@ void BibleNavigatorActivity::loop() {
 }
 
 int BibleNavigatorActivity::fitFont(int cellWidth, int cellHeight, const char* widest) const {
-  for (int i = BibleFonts::UI_COUNT - 1; i > 0; i--) {
-    const int id = BibleFonts::UI_IDS[i];
+  for (int i = SERIF_COUNT - 1; i > 0; i--) {
+    const int id = SERIF_IDS[i];
     if (renderer.getLineHeight(id) <= cellHeight - 6 &&
         renderer.getTextWidth(id, widest, EpdFontFamily::BOLD) <= cellWidth - 10) {
       return id;
     }
   }
-  return BibleFonts::UI_IDS[0];
+  return SERIF_IDS[0];
 }
 
 void BibleNavigatorActivity::drawCell(int x, int y, int w, int h, int fontId, const char* label, bool selected,
@@ -200,7 +203,7 @@ void BibleNavigatorActivity::drawCell(int x, int y, int w, int h, int fontId, co
 
 void BibleNavigatorActivity::drawBookGrid(int top, int left, int width, int height) {
   auto& pack = BIBLE.getPack();
-  const int labelFont = BibleFonts::LABEL_FONT_ID;
+  const int labelFont = SERIF_IDS[0];
   const int labelHeight = renderer.getLineHeight(labelFont) + 4;
   const int otRows = (OLD_TESTAMENT_BOOKS + BOOK_COLUMNS - 1) / BOOK_COLUMNS;
   const int ntBooks = pack.bookCount() - OLD_TESTAMENT_BOOKS;
@@ -212,7 +215,7 @@ void BibleNavigatorActivity::drawBookGrid(int top, int left, int width, int heig
   const char* widest = "";
   int widestW = 0;
   for (int i = 0; i < pack.bookCount(); i++) {
-    const int w = renderer.getTextWidth(BibleFonts::UI_IDS[0], pack.book(i).abbr, EpdFontFamily::BOLD);
+    const int w = renderer.getTextWidth(SERIF_IDS[0], pack.book(i).abbr, EpdFontFamily::BOLD);
     if (w > widestW) {
       widestW = w;
       widest = pack.book(i).abbr;
@@ -243,7 +246,7 @@ void BibleNavigatorActivity::drawNumberGrid(int top, int left, int width, int he
   const int perPage = NUMBER_COLUMNS * NUMBER_ROWS;
   const int pageCount = std::max(1, (count + perPage - 1) / perPage);
   const int page = selection() / perPage;
-  const int labelFont = BibleFonts::LABEL_FONT_ID;
+  const int labelFont = SERIF_IDS[0];
   const int footer = pageCount > 1 ? renderer.getLineHeight(labelFont) + 6 : 0;
   const int cellW = width / NUMBER_COLUMNS;
   const int cellH = std::min(90, (height - footer) / NUMBER_ROWS);
@@ -276,8 +279,8 @@ void BibleNavigatorActivity::render(RenderLock&&) {
   const int hintsHeight = UITheme::getInstance().getMetrics().buttonHintsHeight;
 
   // Header: the selection in words, large.
-  const int titleFont = BibleFonts::TITLE_FONT_ID;
-  const int labelFont = BibleFonts::LABEL_FONT_ID;
+  const int titleFont = SERIF_IDS[SERIF_COUNT - 1];
+  const int labelFont = SERIF_IDS[0];
   std::string title = pack.book(book).name;
   std::string subtitle;
   switch (step) {
@@ -297,8 +300,8 @@ void BibleNavigatorActivity::render(RenderLock&&) {
   // Long titles ("John Chapter 3 verse 16", German book names) step down a size or two, then
   // truncate; the hint under them wraps onto a second line.
   int titleId = titleFont;
-  for (int i = BibleFonts::UI_COUNT - 1; i >= 0; i--) {
-    titleId = BibleFonts::UI_IDS[i];
+  for (int i = SERIF_COUNT - 1; i >= 0; i--) {
+    titleId = SERIF_IDS[i];
     if (renderer.getTextWidth(titleId, title.c_str(), EpdFontFamily::BOLD) <= width) break;
   }
   title = renderer.truncatedText(titleId, title.c_str(), width, EpdFontFamily::BOLD);
