@@ -20,6 +20,7 @@ class SdByteSource final : public bible::ByteSource {
   bool open(const std::string& path);
   void close();
   bool readAt(uint32_t offset, void* dst, uint32_t length) override;
+  uint32_t size() { return file ? static_cast<uint32_t>(file.size()) : 0; }
 
  private:
   HalFile file;

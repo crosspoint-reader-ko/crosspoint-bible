@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Build the per-language SD card bundles (docs/languages.md).
 
-For every language in languages.json except the built-in English:
+For every language in languages.json (English, built into the firmware, gets a bundle with
+just its Bible):
 
   dist/bundles/<code>/bible/lang/<code>/<id>.cpb             Bibles
   dist/bundles/<code>/bible/lang/<code>/README.txt           what this is, where to copy it
@@ -10,6 +11,7 @@ For every language in languages.json except the built-in English:
   dist/bundles/<code>/bible/fonts/<code>/ui/<ui pt>.epdfont   system font
   dist/bundles/<code>/bible/fonts/<code>/LICENSES/           font licenses
   dist/bundles/crosspoint-bible-<version>-<code>.zip         the tree above, rooted at the SD card root
+  dist/bundles/crosspoint-bible-<version>-all.zip            every language in one zip (full runs only)
 
 Fonts are 2-bit, uncompressed, subset to the characters the bundle uses: its Bibles, the
 UI strings of the language (lib/I18n/translations/*.yaml by _bcp47, English when there is
@@ -225,19 +227,23 @@ Licenses: bible/lang/{code}/LICENSES/ (Bibles){font_licenses}.
 """
 
 
-def zip_tree(src_root, zip_path):
+def zip_tree(src_roots, zip_path):
+    """Zip one staging tree, or several merged (their paths do not overlap), reproducibly."""
+    roots = [src_roots] if isinstance(src_roots, str) else src_roots
+    files = []
+    for root in roots:
+        for dirpath, dirnames, filenames in os.walk(root):
+            for f in filenames:
+                full = os.path.join(dirpath, f)
+                files.append((os.path.relpath(full, root).replace(os.sep, "/"), full))
     tmp = zip_path + ".part"
     with zipfile.ZipFile(tmp, "w", zipfile.ZIP_DEFLATED, compresslevel=9) as z:
-        for dirpath, dirnames, filenames in os.walk(src_root):
-            dirnames.sort()
-            for f in sorted(filenames):
-                full = os.path.join(dirpath, f)
-                arc = os.path.relpath(full, src_root).replace(os.sep, "/")
-                info = zipfile.ZipInfo(arc, date_time=(2026, 1, 1, 0, 0, 0))
-                info.compress_type = zipfile.ZIP_DEFLATED
-                info.external_attr = 0o644 << 16
-                with open(full, "rb") as fh:
-                    z.writestr(info, fh.read(), compresslevel=9)
+        for arc, full in sorted(files):
+            info = zipfile.ZipInfo(arc, date_time=(2026, 1, 1, 0, 0, 0))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.external_attr = 0o644 << 16
+            with open(full, "rb") as fh:
+                z.writestr(info, fh.read(), compresslevel=9)
     os.replace(tmp, zip_path)
 
 
@@ -399,8 +405,9 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--otb", required=True, help="Open Translation Bible checkout (has lang/<code>/)")
     ap.add_argument("--out", default=os.path.join(ROOT, "dist", "bundles"))
-    ap.add_argument("--lang", nargs="*", help="language codes (default: every non-built-in language; "
-                    "none with --english builds only the English pack)")
+    ap.add_argument("--lang", nargs="*", help="language codes (default: every language, English too, plus "
+                    "crosspoint-bible-<version>-all.zip with all of them; none with --english builds only "
+                    "the English pack)")
     ap.add_argument("--cache", default=fonts.DEFAULT_CACHE)
     ap.add_argument("--jobs", type=int, default=os.cpu_count())
     ap.add_argument("--no-zip", action="store_true")
@@ -413,7 +420,9 @@ def main():
         print(f"warning: OTB checkout is at {args.otb_commit}, languages.json pins {pinned}", file=sys.stderr)
     args.version = crosspoint_version()
     cfg = epub2cpb.load_languages()
-    entries = [e for e in cfg["languages"] if not e.get("builtin")]
+    # English is built into the firmware; its bundle carries the same pack for a card that should
+    # hold every language (the firmware skips an SD pack identical to the built-in one).
+    entries = list(cfg["languages"])
     if args.lang is not None:
         unknown = set(args.lang) - {e["code"] for e in cfg["languages"]}
         if unknown:
@@ -460,6 +469,10 @@ def main():
                 print(f"    presentation forms missing in {rel}: {len(cps)}: "
                       f"{' '.join(f'U+{c:04X}' for c in cps[:24])}{' ...' if len(cps) > 24 else ''}")
     done = [r for r in reports if not r.get("skipped")]
+    if args.lang is None and not args.no_zip:
+        all_zip = os.path.join(args.out, f"crosspoint-bible-{args.version}-all.zip")
+        zip_tree([os.path.join(args.out, r["code"]) for r in done], all_zip)
+        print(f"all: {len(done)} languages, zip {fmt(os.path.getsize(all_zip))}")
     print(f"total: unpacked {fmt(sum(r['unpacked'] for r in done))}, zips {fmt(sum(r.get('zip', 0) for r in done))}, "
           f"{time.time() - total_t:.0f}s")
     with open(os.path.join(args.out, "report.json"), "w", encoding="utf-8") as f:

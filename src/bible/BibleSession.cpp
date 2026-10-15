@@ -4,8 +4,8 @@
 #include <Logging.h>
 
 #include <algorithm>
-#include <memory>
 #include <cstring>
+#include <memory>
 #include <vector>
 
 #include "BibleFonts.h"
@@ -94,10 +94,11 @@ void BibleSession::rescanLanguages() {
 
   // Built-in pack.
   const auto size = static_cast<uint32_t>(bible_pack_end - bible_pack_start);
+  std::string builtInTitle;
   if (size > 0) {
     bible::MemorySource mem(bible_pack_start, size);
-    std::string title, lang, langName;
-    if (peekPack(mem, title, lang, langName)) addBible(lang, langName, {BUILT_IN_PATH, title});
+    std::string lang, langName;
+    if (peekPack(mem, builtInTitle, lang, langName)) addBible(lang, langName, {BUILT_IN_PATH, builtInTitle});
   }
   // /bible/lang/<code>/*.cpb
   for (const auto& code : listNames(LANG_DIR, true)) {
@@ -107,7 +108,12 @@ void BibleSession::rescanLanguages() {
       SdByteSource src;
       std::string title, lang, langName;
       const std::string p = dir + "/" + f;
-      if (src.open(p) && peekPack(src, title, lang, langName)) addBible(code, langName, {p, title});
+      // The English bundle carries the built-in pack too, so a card can hold every language;
+      // a copy of the built-in pack (same title and size) is not listed twice.
+      if (src.open(p) && peekPack(src, title, lang, langName) &&
+          !(src.size() == size && size > 0 && title == builtInTitle)) {
+        addBible(code, langName, {p, title});
+      }
       src.close();
     }
   }

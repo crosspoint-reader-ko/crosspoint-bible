@@ -2,10 +2,11 @@ Xteink X4 / X3 (ESP32-C3) Bible firmware. English (Open Translation Bible) is bu
 
 **Firmware**: `crosspoint-bible-*-x4-x3.bin`. Copy it to the SD card and flash it from Settings > System > SD Card Firmware Update, or over USB: `esptool.py --chip esp32c3 write_flash 0x10000 <file>`.
 
-**Languages**: download `crosspoint-bible-*-<code>.zip` and unzip it at the root of the SD card. It creates `/bible/lang/<code>/` (the Bibles) and `/bible/fonts/<code>/` (fonts, where the script needs them). Then pick the language in the menu > Language. Several languages can share one card.
+**Languages**: download `crosspoint-bible-*-<code>.zip` (one language) or `crosspoint-bible-*-all.zip` (every language, English included) and unzip it at the root of the SD card. It creates `/bible/lang/<code>/` (the Bibles) and `/bible/fonts/<code>/` (fonts, where the script needs them). Then pick the language in the menu > Language. Several languages can share one card.
 
 | code | language | Bibles |
 |---|---|---|
+| en | English | Open Translation Bible (also built into the firmware) |
 | ko | 한국어 | 개역한글 (1952/1961, public domain), 열린 성경 |
 | ja, zh | 日本語, 简体中文 | Open Translation Bible |
 | ar, fa, he | العربية, فارسی, עברית | Open Translation Bible (right to left) |

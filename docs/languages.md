@@ -42,7 +42,7 @@ Latin and Cyrillic languages (da, de, es, fi, fr, id, is, it, nb, nl, pt, ru, so
 - `ui/` holds the language's system font. Without it the UI uses the built-in Noto Sans.
 - Older layouts still work: a `.cpb` directly in `/bible/` is treated as an extra Bible of its own language.
 
-Each release attaches one zip per language (`crosspoint-bible-<version>-<code>.zip`) that unzips into this layout at the SD card root.
+Each release attaches one zip per language (`crosspoint-bible-<version>-<code>.zip`) and one with every language (`crosspoint-bible-<version>-all.zip`), each unzipping into this layout at the SD card root. The English zip carries the built-in pack; the firmware does not list an SD copy of the built-in pack (same title and size) as a second Bible.
 
 ## On the device
 

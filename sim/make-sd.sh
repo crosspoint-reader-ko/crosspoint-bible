@@ -11,6 +11,7 @@ mkdir -p "$out"
 rm -rf "$out/sd-all"; mkdir -p "$out/sd-all/.crosspoint"
 for zip in "$bundles"/crosspoint-bible-*-*.zip; do
   code=${zip##*-}; code=${code%.zip}
+  [ "$code" = all ] && continue  # the merged zip; sd-all is built from the per-language ones
   dir=$out/sd-$code
   rm -rf "$dir"; mkdir -p "$dir/.crosspoint"
   python3 -c "import sys,zipfile; zipfile.ZipFile(sys.argv[1]).extractall(sys.argv[2])" "$zip" "$dir"

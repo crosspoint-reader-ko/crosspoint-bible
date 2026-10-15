@@ -22,7 +22,7 @@ Later updates also go through SD Card Firmware Update. The firmware has no netwo
 
 English is built in. For any other language, download its bundle and unzip it at the root of the SD card.
 
-1. From the release, download `crosspoint-bible-<version>-<code>.zip` for each language you want (`ko` Korean, `ja` Japanese, `zh` Chinese, `es` Spanish, ...).
+1. From the release, download `crosspoint-bible-<version>-<code>.zip` for each language you want (`ko` Korean, `ja` Japanese, `zh` Chinese, `es` Spanish, ...), or `crosspoint-bible-<version>-all.zip` for every language at once (about 55 MB). `en` holds the English Bible that is already built in, for a card that should carry its own copy.
 2. Unzip it into the root of the SD card. The zip already contains the `bible/` folder, so the files land in `/bible/lang/<code>/` and `/bible/fonts/<code>/`. Several languages can share one card.
 3. On the device, open the menu (Back) > Language, or Settings > System > Language. The list shows English and every installed language. Choosing one switches the menus, the Bible and the fonts together.
 
