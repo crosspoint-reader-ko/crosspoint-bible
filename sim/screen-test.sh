@@ -5,9 +5,8 @@
 #   -b        build the firmware first (pio run -e ENV)
 #   --bless   save this run's shots as sim/golden/<scenario>/ instead of comparing
 #   SCENARIO  names of sim/scenarios/*.steps (default: all)
-# The SD card holds /bible/krv.cpb, converted from $BIBLE_EPUB (default: the
-# 개역개정 EPUB in iCloud Drive Books/_성경). The pack is copyrighted text and
-# stays in sim/out (gitignored).
+# The SD card is empty unless the scenario says "# sd: NAME": the firmware then reads
+# the built-in English Bible. Language scenarios use sim/out/sd-NAME (sim/make-sd.sh).
 # Needs the workspace emulator checkout ../../x4prosim and ../../sim/shotdiff.py.
 # The X3 ink model leaves ghosts of earlier screens (not calibrated, see
 # ../../sim/README.md). Shots use ideal ink unless REAL_INK=1.
@@ -38,14 +37,8 @@ fi
 bdir=$repo/.pio/build/$env
 [ -f "$bdir/firmware.bin" ] || { echo "no $bdir/firmware.bin (run with -b)"; exit 2; }
 
-epub=${BIBLE_EPUB:-$(ls "$HOME/Library/Mobile Documents/com~apple~CloudDocs/Books/_성경/"*.epub 2>/dev/null | head -1)}
-sd=$out/sd
-if [ ! -f "$sd/bible/krv.cpb" ] || [ "$repo/tools/bible/epub2cpb.py" -nt "$sd/bible/krv.cpb" ]; then
-  [ -f "$epub" ] || { echo "no Bible EPUB (set BIBLE_EPUB)"; exit 2; }
-  mkdir -p "$sd/bible"
-  python3 "$repo/tools/bible/epub2cpb.py" "$epub" "$sd/bible/krv.cpb" > "$out/epub2cpb.log" 2>&1 \
-    || { echo "FAIL epub2cpb, see sim/out/epub2cpb.log"; exit 1; }
-fi
+sd=$out/sd-empty
+mkdir -p "$sd"
 
 flash=$out/flash-$env.bin
 "$simsrc/x4prosim/mkflash.sh" "$bdir" "$flash" > "$out/mkflash.log" 2>&1 \
@@ -60,12 +53,10 @@ for sc in $scenarios; do
   [ -f "$steps" ] || { echo "FAIL $sc: no $steps"; fail=1; continue; }
   dir=$out/screen/$sc
   rm -rf "$dir"; mkdir -p "$dir"
-  # "# sd: empty" boots without /bible on the card (built-in pack only); "# sd: NAME" boots
-  # from sim/out/sd-NAME (built by sim/make-sd.sh from the language bundles).
+  # "# sd: NAME" boots from sim/out/sd-NAME (built by sim/make-sd.sh from the language bundles).
   sdsrc=$sd
   sdname=$(sed -n 's/^# sd: *//p' "$steps" | head -1)
-  if [ "$sdname" = empty ]; then sdsrc=$out/sd-empty; mkdir -p "$sdsrc"
-  elif [ -n "$sdname" ]; then sdsrc=$out/sd-$sdname
+  if [ -n "$sdname" ] && [ "$sdname" != empty ]; then sdsrc=$out/sd-$sdname
     [ -d "$sdsrc" ] || { echo "FAIL $sc: no $sdsrc (run sim/make-sd.sh)"; fail=1; continue; }
   fi
   python3 "$simsrc/x4prosim/mksd.py" "$dir/sd.img" 256 "$sdsrc" > /dev/null \

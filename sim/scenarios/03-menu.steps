@@ -1,10 +1,12 @@
-# Menu: text size 20 -> 24 -> 28, then paragraph layout, then wrap size to 14.
+# Menu: text size 18 -> 22 -> 28, then paragraph layout, then wrap size to 14.
 wait:10
 press:back:100
 wait:1.5
 wait:2
 shot:menu
-# Row 3 = text size.
+# Row 4 = text size.
+press:right:100
+wait:1.5
 press:right:100
 wait:1.5
 press:right:100
@@ -37,9 +39,7 @@ press:right:100
 wait:1.5
 press:confirm:100
 wait:1.5
-# Back to row 3, size 28 -> 14.
-press:left:100
-wait:1.5
+# Back to row 4, size 28 -> 14.
 press:left:100
 wait:1.5
 press:left:100

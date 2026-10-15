@@ -1,4 +1,5 @@
 # Bookmark Genesis 1:1 into a new folder typed on the keyboard, browse it, delete it.
+# English has no Hangul font, so the keyboard is Latin only; "quiet" uses the top letter row.
 wait:10
 press:back:100
 wait:1.5
@@ -14,15 +15,12 @@ press:confirm:100
 wait:1.5
 wait:1
 shot:keyboard
-press:right:100
-wait:1.5
-press:right:100
-wait:1.5
-press:right:100
-wait:1.5
+# q (column 0), u (6), i (7), e (2), t (4)
 press:confirm:100
 wait:1.5
-press:down:100
+press:right:100
+wait:1.5
+press:right:100
 wait:1.5
 press:right:100
 wait:1.5
@@ -34,9 +32,9 @@ press:right:100
 wait:1.5
 press:confirm:100
 wait:1.5
-press:left:100
+press:right:100
 wait:1.5
-press:left:100
+press:confirm:100
 wait:1.5
 press:left:100
 wait:1.5
@@ -49,22 +47,6 @@ wait:1.5
 press:left:100
 wait:1.5
 press:confirm:100
-wait:1.5
-press:up:100
-wait:1.5
-press:right:100
-wait:1.5
-press:right:100
-wait:1.5
-press:right:100
-wait:1.5
-press:right:100
-wait:1.5
-press:confirm:100
-wait:1.5
-press:down:100
-wait:1.5
-press:right:100
 wait:1.5
 press:right:100
 wait:1.5
@@ -73,11 +55,20 @@ wait:1.5
 press:confirm:100
 wait:1.5
 shot:typed
-press:down:100
-wait:1.5
-press:down:100
+# Over to p (column 9), then up twice (wrapping past the digits) lands on Done.
+press:right:100
 wait:1.5
 press:right:100
+wait:1.5
+press:right:100
+wait:1.5
+press:right:100
+wait:1.5
+press:right:100
+wait:1.5
+press:up:100
+wait:1.5
+press:up:100
 wait:1.5
 press:confirm:100
 wait:1.5
