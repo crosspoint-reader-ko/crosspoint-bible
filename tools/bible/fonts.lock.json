@@ -1,0 +1,278 @@
+{
+ "_comment": "Pinned font sources for tools/bible/fonts.py. 'fonts.py lock' re-downloads and refills sha256. axes: static instance rendered from a variable font.",
+ "sources": {
+  "google/fonts": {
+   "repo": "https://github.com/google/fonts",
+   "commit": "67bc647ce1910e92f461bcc82aae30f21d21a9cc"
+  },
+  "orioncactus/pretendard": {
+   "repo": "https://github.com/orioncactus/pretendard",
+   "tag": "v1.3.9",
+   "commit": "5c41199ea0024a9e0b2cb31735265056e5472d76"
+  },
+  "fonts-archive/RIDIBatang": {
+   "repo": "https://github.com/fonts-archive/RIDIBatang",
+   "commit": "f1628238e56fd41c12451dfc7d975527b61ebfc7",
+   "official": "https://ridicorp.com/ridibatang/"
+  }
+ },
+ "fonts": {
+  "KoPubBatangMedium": {
+   "path": "lib/EpdFont/builtinFonts/source/KoPub-Batang/KoPub Batang_Pro Medium.otf",
+   "name": "KoPub Batang_Pro Medium.otf",
+   "sha256": "32ae579064528dcc9d982bc2286defdd292ffe4c3a6e510ac691b326c3262e5b",
+   "license": "KoPub font terms (Korean Publishers Society)",
+   "license_files": [
+    {
+     "name": "KoPub-NOTICE.txt",
+     "text": "KoPub Batang Pro Medium (KoPub바탕체_Pro Medium), version 2.1.1\nCopyright (c) 2018 한국출판인회의 (Korean Publishers Society). All rights reserved.\nFont designed by FONTRIX Inc. KoPub is a registered trademark of Korea Publisher Society.\n\nThe KoPub fonts are distributed free of charge by 한국출판인회의 (https://www.kopus.org).\nThis bundle carries bitmap renderings of a subset of the font, used under the KoPub font terms\npublished by 한국출판인회의. See their site for the full terms.\n"
+    }
+   ]
+  },
+  "RIDIBatang": {
+   "url": "https://raw.githubusercontent.com/fonts-archive/RIDIBatang/f1628238e56fd41c12451dfc7d975527b61ebfc7/RIDIBatang.otf",
+   "name": "RIDIBatang.otf",
+   "sha256": "f13a49c0815d254ac15e392953a0b056613dec08ceb378e54eeed14c4fda9a54",
+   "license": "SIL OFL 1.1",
+   "_source_note": "RIDI's own page (https://ridicorp.com/ridibatang/) refuses scripted downloads (HTTP 403); this is the fonts-archive mirror pinned by commit and sha256.",
+   "license_files": [
+    {
+     "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/notoserifjp/OFL.txt",
+     "name": "OFL.txt",
+     "sha256": "5e0da210fb04058a8c0087985d2d456b931c2579811a49655721d3cf0c36b6d6"
+    },
+    {
+     "name": "NOTICE.txt",
+     "text": "RIDIBatang (리디바탕), Copyright (c) RIDI Corporation (https://ridicorp.com/ridibatang/).\nLicensed under the SIL Open Font License, Version 1.1 (OFL.txt; the copyright line there belongs to Noto and is replaced by the line above).\n"
+    }
+   ]
+  },
+  "Pretendard": {
+   "url": "https://raw.githubusercontent.com/orioncactus/pretendard/5c41199ea0024a9e0b2cb31735265056e5472d76/packages/pretendard/dist/public/static/Pretendard-Regular.otf",
+   "name": "Pretendard-Regular.otf",
+   "sha256": "3ffbacde6ab8411f1d2db54bb9b1f0b3ee2a738932033722cf0388c06aed1c93",
+   "license": "SIL OFL 1.1",
+   "license_files": [
+    {
+     "url": "https://raw.githubusercontent.com/orioncactus/pretendard/5c41199ea0024a9e0b2cb31735265056e5472d76/LICENSE",
+     "name": "LICENSE.txt",
+     "sha256": "d31ddd9f2bed32fd7e302a205cf2380ba0de6529152d239ef99cfb6f261bfc04"
+    }
+   ]
+  },
+  "NotoSerifJP": {
+   "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/notoserifjp/NotoSerifJP%5Bwght%5D.ttf",
+   "name": "NotoSerifJP[wght].ttf",
+   "sha256": "2fd527ba12b6a44ec30d796d633360da0aeba6c5d4af1304ce12bb4dc15a7dfc",
+   "axes": {
+    "wght": 400
+   },
+   "license": "SIL OFL 1.1",
+   "license_files": [
+    {
+     "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/notoserifjp/OFL.txt",
+     "name": "OFL.txt",
+     "sha256": "5e0da210fb04058a8c0087985d2d456b931c2579811a49655721d3cf0c36b6d6"
+    }
+   ]
+  },
+  "NotoSansJP": {
+   "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/notosansjp/NotoSansJP%5Bwght%5D.ttf",
+   "name": "NotoSansJP[wght].ttf",
+   "sha256": "c2f3b4d463500a2ddcd3849cded1fceeb9fd6d1c32e6cbecd568453ba50fc68f",
+   "axes": {
+    "wght": 400
+   },
+   "license": "SIL OFL 1.1",
+   "license_files": [
+    {
+     "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/notosansjp/OFL.txt",
+     "name": "OFL.txt",
+     "sha256": "1c05c68c34f9708415aada51f17e1b0092d2cea709bf4a94cd38114f9e73d7d9"
+    }
+   ]
+  },
+  "NotoSerifSC": {
+   "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/notoserifsc/NotoSerifSC%5Bwght%5D.ttf",
+   "name": "NotoSerifSC[wght].ttf",
+   "sha256": "050080d9255a86808f2945bffac582b31ef32bc36411ce29563b4961670c66f9",
+   "axes": {
+    "wght": 400
+   },
+   "license": "SIL OFL 1.1",
+   "license_files": [
+    {
+     "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/notoserifsc/OFL.txt",
+     "name": "OFL.txt",
+     "sha256": "5e0da210fb04058a8c0087985d2d456b931c2579811a49655721d3cf0c36b6d6"
+    }
+   ]
+  },
+  "NotoSansSC": {
+   "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/notosanssc/NotoSansSC%5Bwght%5D.ttf",
+   "name": "NotoSansSC[wght].ttf",
+   "sha256": "a3041811a78c361b1de50f953c805e0244951c21c5bd412f7232ef0d899af0da",
+   "axes": {
+    "wght": 400
+   },
+   "license": "SIL OFL 1.1",
+   "license_files": [
+    {
+     "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/notosanssc/OFL.txt",
+     "name": "OFL.txt",
+     "sha256": "1c05c68c34f9708415aada51f17e1b0092d2cea709bf4a94cd38114f9e73d7d9"
+    }
+   ]
+  },
+  "NotoNaskhArabic": {
+   "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/notonaskharabic/NotoNaskhArabic%5Bwght%5D.ttf",
+   "name": "NotoNaskhArabic[wght].ttf",
+   "sha256": "67b5a525a661b607971fbd3f96a81b89d3a768e74534fca84f18ac97e6fab72f",
+   "axes": {
+    "wght": 400
+   },
+   "license": "SIL OFL 1.1",
+   "license_files": [
+    {
+     "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/notonaskharabic/OFL.txt",
+     "name": "OFL.txt",
+     "sha256": "a7a5a25eb188bf1cd96982030d53e23c33485c69b1044a562254226857ee13af"
+    }
+   ]
+  },
+  "NotoSansArabic": {
+   "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/notosansarabic/NotoSansArabic%5Bwdth,wght%5D.ttf",
+   "name": "NotoSansArabic[wdth,wght].ttf",
+   "sha256": "63111b5b2e074dd48cc67692e0a2726d86ee94c1c37fe8598257b7b4e87e869e",
+   "axes": {
+    "wght": 400,
+    "wdth": 100
+   },
+   "license": "SIL OFL 1.1",
+   "license_files": [
+    {
+     "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/notosansarabic/OFL.txt",
+     "name": "OFL.txt",
+     "sha256": "07fc70bfeb985cc1a87a8587d0a0c80bab11c86c9dc3fd95b6f0cb332f983e96"
+    }
+   ]
+  },
+  "Vazirmatn": {
+   "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/vazirmatn/Vazirmatn%5Bwght%5D.ttf",
+   "name": "Vazirmatn[wght].ttf",
+   "sha256": "696249a2c74b39ffdef55de4df2809c5b639d3ff80d618d8160a095d2fd49dca",
+   "axes": {
+    "wght": 400
+   },
+   "license": "SIL OFL 1.1",
+   "license_files": [
+    {
+     "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/vazirmatn/OFL.txt",
+     "name": "OFL.txt",
+     "sha256": "17e355067c8284f47743a1ee3b1ef7ff684ff0601eda357f9353b10b3016ab31"
+    }
+   ]
+  },
+  "NotoSerifHebrew": {
+   "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/notoserifhebrew/NotoSerifHebrew%5Bwdth,wght%5D.ttf",
+   "name": "NotoSerifHebrew[wdth,wght].ttf",
+   "sha256": "93caef921360788dc3b0e32136bb26f16bc57717ec482d48fc7fd43820617165",
+   "axes": {
+    "wght": 400,
+    "wdth": 100
+   },
+   "license": "SIL OFL 1.1",
+   "license_files": [
+    {
+     "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/notoserifhebrew/OFL.txt",
+     "name": "OFL.txt",
+     "sha256": "9b9fe028b5ba74d231659a1bbaf0ed09b11e759d1ca6a070999e16d151616b47"
+    }
+   ]
+  },
+  "NotoSansHebrew": {
+   "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/notosanshebrew/NotoSansHebrew%5Bwdth,wght%5D.ttf",
+   "name": "NotoSansHebrew[wdth,wght].ttf",
+   "sha256": "7ef36a2c3593758cdb622e1bdef4f84523e92fbc3ccc667438dd80ff54c2de88",
+   "axes": {
+    "wght": 400,
+    "wdth": 100
+   },
+   "license": "SIL OFL 1.1",
+   "license_files": [
+    {
+     "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/notosanshebrew/OFL.txt",
+     "name": "OFL.txt",
+     "sha256": "9b9fe028b5ba74d231659a1bbaf0ed09b11e759d1ca6a070999e16d151616b47"
+    }
+   ]
+  },
+  "NotoSerifDevanagari": {
+   "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/notoserifdevanagari/NotoSerifDevanagari%5Bwdth,wght%5D.ttf",
+   "name": "NotoSerifDevanagari[wdth,wght].ttf",
+   "sha256": "1191e07bfeb062d80e252eb85b0eafdfbda1e350707a2a60628668e8f677dbbb",
+   "axes": {
+    "wght": 400,
+    "wdth": 100
+   },
+   "license": "SIL OFL 1.1",
+   "license_files": [
+    {
+     "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/notoserifdevanagari/OFL.txt",
+     "name": "OFL.txt",
+     "sha256": "a216f6f8d85c7228093e0ee5e258d9d377e6671f68acb4db1930b29583d0f331"
+    }
+   ]
+  },
+  "NotoSansDevanagari": {
+   "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/notosansdevanagari/NotoSansDevanagari%5Bwdth,wght%5D.ttf",
+   "name": "NotoSansDevanagari[wdth,wght].ttf",
+   "sha256": "14ec4af41f27482216d1c2229f417ff9b1425e1babb014e57d1d40d03229853e",
+   "axes": {
+    "wght": 400,
+    "wdth": 100
+   },
+   "license": "SIL OFL 1.1",
+   "license_files": [
+    {
+     "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/notosansdevanagari/OFL.txt",
+     "name": "OFL.txt",
+     "sha256": "a216f6f8d85c7228093e0ee5e258d9d377e6671f68acb4db1930b29583d0f331"
+    }
+   ]
+  },
+  "NotoSerifMalayalam": {
+   "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/notoserifmalayalam/NotoSerifMalayalam%5Bwght%5D.ttf",
+   "name": "NotoSerifMalayalam[wght].ttf",
+   "sha256": "eed354cadb35992df6e8b32fdb7edb399989b165f0f25e7a921009683db26e8e",
+   "axes": {
+    "wght": 400
+   },
+   "license": "SIL OFL 1.1",
+   "license_files": [
+    {
+     "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/notoserifmalayalam/OFL.txt",
+     "name": "OFL.txt",
+     "sha256": "1df18163a0bf60f02131401ba1609df90051f40c4047684dda1c8a2e9586f7f2"
+    }
+   ]
+  },
+  "NotoSansMalayalam": {
+   "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/notosansmalayalam/NotoSansMalayalam%5Bwdth,wght%5D.ttf",
+   "name": "NotoSansMalayalam[wdth,wght].ttf",
+   "sha256": "312e0e7c3cc15fa09eb42a8f749eeb246b593ed420e3c81aafe8d910c3a6fb56",
+   "axes": {
+    "wght": 400,
+    "wdth": 100
+   },
+   "license": "SIL OFL 1.1",
+   "license_files": [
+    {
+     "url": "https://raw.githubusercontent.com/google/fonts/67bc647ce1910e92f461bcc82aae30f21d21a9cc/ofl/notosansmalayalam/OFL.txt",
+     "name": "OFL.txt",
+     "sha256": "1df18163a0bf60f02131401ba1609df90051f40c4047684dda1c8a2e9586f7f2"
+    }
+   ]
+  }
+ }
+}

@@ -62,6 +62,7 @@ Packs (`docs/bible-pack-format.md`) carry these metadata keys:
 | `wrap` | `word` (break at spaces, hyphenate when the language has patterns) or `char` (break between any characters: Korean, Chinese, Japanese) |
 | `hyphenation` | hyphenation pattern language, when built in |
 | `shaped` | `pua`: text is pre-shaped into private-use glyphs that only the bundle's fonts carry (Hindi, Malayalam) |
+| `chapter_fmt`, `psalm_fmt` | chapter and psalm titles with `%d`, for pre-shaped languages (their UI strings stay English) |
 | `edition`, `license`, `copyright`, `source`, `version`, `note` | shown on the Bible info screen |
 
 The header's language field holds the language code.

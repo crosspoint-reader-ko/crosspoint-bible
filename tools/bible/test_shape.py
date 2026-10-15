@@ -50,7 +50,7 @@ class TableFormatTest(unittest.TestCase):
         self.assertEqual(c.advance, 475)
 
     def test_committed_tables_parse(self):
-        for name in ("hi", "ml", "hi-ui", "ml-ui"):
+        for name in ("hi", "ml"):
             path = os.path.join(DATA, name + ".txt")
             if not os.path.exists(path):
                 continue
