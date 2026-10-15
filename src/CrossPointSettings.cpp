@@ -160,17 +160,20 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
     }
   }
 
-  // Sleep screen. The book-cover modes need the removed EPUB/XTC/TXT readers: Cover falls
-  // back to the default screen and Cover + Custom to the custom images.
+  // Sleep screen. CrossPoint Bible offers the Bible cover (Dark/Light), Blank and Quick
+  // Resume; the book-cover and custom-image modes of the reader firmware become Dark.
   uint8_t storedSleepScreen = doc["sleepScreen"] | (uint8_t)DARK;
-  if (storedSleepScreen == COVER) {
+  if (storedSleepScreen != DARK && storedSleepScreen != LIGHT && storedSleepScreen != BLANK &&
+      storedSleepScreen != QUICK_RESUME) {
     storedSleepScreen = DARK;
     needsResave = true;
-  } else if (storedSleepScreen == COVER_CUSTOM) {
-    storedSleepScreen = CUSTOM;
-    needsResave = true;
   }
-  sleepScreen = clamp(storedSleepScreen, SLEEP_SCREEN_MODE_COUNT, (uint8_t)DARK);
+  sleepScreen = storedSleepScreen;
+
+  // Not offered in CrossPoint Bible: the short power press does nothing (the reader pages
+  // with the front and side buttons) and the UI theme is fixed.
+  shortPwrBtn = IGNORE;
+  uiTheme = LYRA;
 
   if (doc["sleepTimeoutMinutes"].isNull() && !doc["sleepTimeout"].isNull()) {
     const uint8_t legacyValue =

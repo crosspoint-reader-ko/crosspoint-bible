@@ -59,12 +59,12 @@ EpdFontFamily uiFontFamily(&pretendard10RegularFont);
 // Bible reader fonts (KoPub Batang Medium, five sizes) - Regular only, synthetic bold applied by renderer
 EpdFont bible14RegularFont(&bible_14_regular);
 EpdFontFamily bible14FontFamily(&bible14RegularFont);
-EpdFont bible17RegularFont(&bible_17_regular);
-EpdFontFamily bible17FontFamily(&bible17RegularFont);
-EpdFont bible20RegularFont(&bible_20_regular);
-EpdFontFamily bible20FontFamily(&bible20RegularFont);
-EpdFont bible24RegularFont(&bible_24_regular);
-EpdFontFamily bible24FontFamily(&bible24RegularFont);
+EpdFont bible16RegularFont(&bible_16_regular);
+EpdFontFamily bible16FontFamily(&bible16RegularFont);
+EpdFont bible18RegularFont(&bible_18_regular);
+EpdFontFamily bible18FontFamily(&bible18RegularFont);
+EpdFont bible22RegularFont(&bible_22_regular);
+EpdFontFamily bible22FontFamily(&bible22RegularFont);
 EpdFont bible28RegularFont(&bible_28_regular);
 EpdFontFamily bible28FontFamily(&bible28RegularFont);
 
@@ -237,9 +237,9 @@ void setupDisplayAndFonts(bool seamless = false) {
 
   // Bible reader fonts. BIBLE_14 keeps the id the KoPub 14pt reader font had (KOPUB_14_FONT_ID).
   renderer.insertFont(BIBLE_14_FONT_ID, &bible14FontFamily);
-  renderer.insertFont(BIBLE_17_FONT_ID, &bible17FontFamily);
-  renderer.insertFont(BIBLE_20_FONT_ID, &bible20FontFamily);
-  renderer.insertFont(BIBLE_24_FONT_ID, &bible24FontFamily);
+  renderer.insertFont(BIBLE_16_FONT_ID, &bible16FontFamily);
+  renderer.insertFont(BIBLE_18_FONT_ID, &bible18FontFamily);
+  renderer.insertFont(BIBLE_22_FONT_ID, &bible22FontFamily);
   renderer.insertFont(BIBLE_28_FONT_ID, &bible28FontFamily);
 
   // Set fallback font to Pretendard UI

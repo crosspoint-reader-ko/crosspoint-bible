@@ -11,7 +11,7 @@
 // CrossPoint Bible reader fonts (KoPub Batang Medium, KS X 1001 Hangul, compressed).
 // lib/EpdFont/scripts/convert-bible-fonts.sh
 #include <builtinFonts/bible_14_regular.h>
-#include <builtinFonts/bible_17_regular.h>
-#include <builtinFonts/bible_20_regular.h>
-#include <builtinFonts/bible_24_regular.h>
+#include <builtinFonts/bible_16_regular.h>
+#include <builtinFonts/bible_18_regular.h>
+#include <builtinFonts/bible_22_regular.h>
 #include <builtinFonts/bible_28_regular.h>

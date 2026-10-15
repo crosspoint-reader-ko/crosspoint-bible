@@ -11,7 +11,7 @@ namespace {
 constexpr int TITLE_TOP = 612;
 }  // namespace
 
-void drawBibleCover(const GfxRenderer& renderer, const char* status) {
+void drawBibleCover(const GfxRenderer& renderer, const char* status, bool title) {
   const int screenW = renderer.getScreenWidth();
   const int screenH = renderer.getScreenHeight();
   renderer.fillRect(0, 0, screenW, screenH, true);
@@ -34,11 +34,12 @@ void drawBibleCover(const GfxRenderer& renderer, const char* status) {
     titleTop = oy + TITLE_TOP;
   }
 
+  if (!title) return;
   const int titleFont = BibleFonts::IDS[3];
   const int statusFont = BibleFonts::LABEL_FONT_ID;
-  const char* title = tr(STR_CROSSPOINT);
-  int w = renderer.getTextWidth(titleFont, title, EpdFontFamily::BOLD);
-  renderer.drawText(titleFont, (screenW - w) / 2, titleTop, title, false, EpdFontFamily::BOLD);
+  const char* name = tr(STR_CROSSPOINT);
+  int w = renderer.getTextWidth(titleFont, name, EpdFontFamily::BOLD);
+  renderer.drawText(titleFont, (screenW - w) / 2, titleTop, name, false, EpdFontFamily::BOLD);
   if (status && *status) {
     w = renderer.getTextWidth(statusFont, status);
     renderer.drawText(statusFont, (screenW - w) / 2, titleTop + renderer.getLineHeight(titleFont) + 14, status, false);

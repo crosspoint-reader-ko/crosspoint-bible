@@ -22,11 +22,12 @@ class SdByteSource final : public bible::ByteSource {
 };
 
 struct BiblePrefs {
-  uint8_t fontSize = 2;      // index into BibleFonts (0 = smallest)
+  // First-run defaults: 18 pt, normal spacing, verse per line, justified.
+  uint8_t fontSize = 2;      // index into BibleFonts (0 = smallest; 2 = 18 pt)
   uint8_t lineSpacing = 1;   // 0 tight, 1 normal, 2 wide
   uint8_t versePerLine = 1;  // 1 = each verse starts a line, 0 = flowing paragraphs
   uint8_t showHeadings = 1;  // section titles and psalm superscriptions
-  uint8_t justify = 0;       // 0 = left aligned, 1 = justified with character wrap
+  uint8_t justify = 1;       // 0 = left aligned, 1 = justified with character wrap
 };
 
 class BibleSession {

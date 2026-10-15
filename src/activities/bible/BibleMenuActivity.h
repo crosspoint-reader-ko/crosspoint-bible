@@ -26,7 +26,6 @@ class BibleMenuActivity final : public Activity {
     BOOKMARKS,
     FONT_SIZE,
     LINE_SPACING,
-    ALIGN,
     LAYOUT,
     HEADINGS,
     SMOOTHING,

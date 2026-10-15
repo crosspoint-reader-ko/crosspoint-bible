@@ -13,27 +13,19 @@
 #include "CrossPointSettings.h"
 #include "HomeButtonSettings.h"
 #include "activities/settings/SettingsActivity.h"
+#include "bible/BibleSession.h"
 #include "components/UITheme.h"
 
-// Persisted by index (CrossPointSettings::UI_THEME). Lyra Extended renders as Lyra now
-// that the home screen is gone; it stays listed so RoundedRaff keeps its index.
-inline std::vector<StrId> homeThemeValues() {
-  return {StrId::STR_THEME_CLASSIC, StrId::STR_THEME_LYRA, StrId::STR_THEME_LYRA_EXTENDED,
-          StrId::STR_THEME_ROUNDEDRAFF};
-}
-
 // Sleep screens offered in CrossPoint Bible, in menu order. The setting persists the
-// CrossPointSettings::SLEEP_SCREEN_MODE value, so the book-cover modes (COVER,
-// COVER_CUSTOM) keep their numbers but are no longer offered.
-inline constexpr uint8_t SLEEP_SCREEN_MENU[] = {
-    CrossPointSettings::DARK,  CrossPointSettings::LIGHT,        CrossPointSettings::CUSTOM,
-    CrossPointSettings::BLANK, CrossPointSettings::QUICK_RESUME, CrossPointSettings::TRANSPARENT_CUSTOM};
+// CrossPointSettings::SLEEP_SCREEN_MODE value; the custom-image and book-cover modes keep
+// their numbers but are no longer offered (CrossPointSettings::loadFromFile maps them to Dark).
+inline constexpr uint8_t SLEEP_SCREEN_MENU[] = {CrossPointSettings::DARK, CrossPointSettings::LIGHT,
+                                                CrossPointSettings::BLANK, CrossPointSettings::QUICK_RESUME};
 
 inline SettingInfo buildSleepScreenSetting() {
   SettingInfo s = SettingInfo::DynamicEnum(
       StrId::STR_SLEEP_SCREEN,
-      {StrId::STR_DARK, StrId::STR_LIGHT, StrId::STR_CUSTOM, StrId::STR_NONE_OPT, StrId::STR_QUICK_RESUME,
-       StrId::STR_TRANSPARENT},
+      {StrId::STR_DARK, StrId::STR_LIGHT, StrId::STR_NONE_OPT, StrId::STR_QUICK_RESUME},
       [] {
         const auto it = std::find(std::begin(SLEEP_SCREEN_MENU), std::end(SLEEP_SCREEN_MENU), SETTINGS.sleepScreen);
         return static_cast<uint8_t>(it == std::end(SLEEP_SCREEN_MENU) ? 0 : it - std::begin(SLEEP_SCREEN_MENU));
@@ -55,11 +47,6 @@ inline std::vector<SettingInfo> getSettingsList() {
     std::vector<SettingInfo> v = {
         // --- Display ---
         buildSleepScreenSetting(),
-        SettingInfo::Enum(StrId::STR_SLEEP_COVER_MODE, &CrossPointSettings::sleepScreenCoverMode,
-                          {StrId::STR_FIT, StrId::STR_CROP}, "sleepScreenCoverMode", StrId::STR_CAT_DISPLAY),
-        SettingInfo::Enum(StrId::STR_SLEEP_COVER_FILTER, &CrossPointSettings::sleepScreenCoverFilter,
-                          {StrId::STR_NONE_OPT, StrId::STR_FILTER_CONTRAST, StrId::STR_INVERTED},
-                          "sleepScreenCoverFilter", StrId::STR_CAT_DISPLAY),
         SettingInfo::Enum(StrId::STR_QUICK_RESUME_TIMEOUT, &CrossPointSettings::quickResumeSleepScreen,
                           {StrId::STR_STATE_OFF, StrId::STR_STATE_ON}, "quickResumeSleepScreen",
                           StrId::STR_CAT_DISPLAY),
@@ -70,8 +57,6 @@ inline std::vector<SettingInfo> getSettingsList() {
                           {StrId::STR_PAGES_1, StrId::STR_PAGES_5, StrId::STR_PAGES_10, StrId::STR_PAGES_15,
                            StrId::STR_PAGES_30, StrId::STR_NEVER},
                           "refreshFrequency", StrId::STR_CAT_DISPLAY),
-        SettingInfo::Enum(StrId::STR_UI_THEME, &CrossPointSettings::uiTheme, homeThemeValues(), "uiTheme",
-                          StrId::STR_CAT_DISPLAY),
         SettingInfo::Toggle(StrId::STR_SUNLIGHT_FADING_FIX, &CrossPointSettings::fadingFix, "fadingFix",
                             StrId::STR_CAT_DISPLAY),
 #if FREEINK_CAP_FRONTLIGHT
@@ -92,6 +77,15 @@ inline std::vector<SettingInfo> getSettingsList() {
             "orientation", StrId::STR_CAT_READER),
         SettingInfo::Toggle(StrId::STR_TEXT_AA, &CrossPointSettings::textAntiAliasing, "textAntiAliasing",
                             StrId::STR_CAT_READER),
+        // Bible reader preference (BibleSession saves it, not settings.json).
+        SettingInfo::DynamicEnum(
+            StrId::STR_BIBLE_ALIGN, {StrId::STR_BIBLE_ALIGN_LEFT, StrId::STR_BIBLE_ALIGN_JUSTIFY},
+            [] { return BIBLE.prefs.justify; },
+            [](const uint8_t v) {
+              BIBLE.prefs.justify = v ? 1 : 0;
+              BIBLE.saveState();
+            },
+            nullptr, StrId::STR_CAT_READER),
 
         // --- Controls ---
         SettingInfo::Enum(StrId::STR_SIDE_BTN_LAYOUT, &CrossPointSettings::sideButtonLayout,
@@ -103,19 +97,8 @@ inline std::vector<SettingInfo> getSettingsList() {
         // Erased below unless the board is an X4 Pro.
         SettingInfo::Toggle(StrId::STR_DBL_CLICK_PWR_LIGHT, &CrossPointSettings::doubleClickPwrLight,
                             "doubleClickPwrLight", StrId::STR_CAT_CONTROLS),
-    // Persisted by index, so the list keeps upstream's order. Page Turn and
-    // Footnotes are reader actions the Bible reader does not implement.
-#if FREEINK_CAP_TOUCH
-        SettingInfo::Enum(StrId::STR_SHORT_PWR_BTN, &CrossPointSettings::shortPwrBtn,
-                          {StrId::STR_IGNORE, StrId::STR_SLEEP, StrId::STR_PAGE_TURN, StrId::STR_FORCE_REFRESH,
-                           StrId::STR_FOOTNOTES, StrId::STR_CONFIRM},
-                          "shortPwrBtn", StrId::STR_CAT_CONTROLS),
-#else
-        SettingInfo::Enum(
-            StrId::STR_SHORT_PWR_BTN, &CrossPointSettings::shortPwrBtn,
-            {StrId::STR_IGNORE, StrId::STR_SLEEP, StrId::STR_PAGE_TURN, StrId::STR_FORCE_REFRESH, StrId::STR_FOOTNOTES},
-            "shortPwrBtn", StrId::STR_CAT_CONTROLS),
-#endif
+    // Short power press is not offered: it always does nothing in CrossPoint Bible
+    // (the reader pages with the front and side buttons), see loadFromFile.
 
         // --- System ---
         SettingInfo::Value(

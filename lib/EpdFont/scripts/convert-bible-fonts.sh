@@ -11,7 +11,7 @@ cd "$(dirname "$0")"
 PY="${PYTHON:-python3}"
 [ -x venv/bin/python ] && [ -z "$PYTHON" ] && PY=venv/bin/python
 pids=()
-SIZES=("${@:-14 17 20 24 28}")
+SIZES=("${@:-14 16 18 22 28}")
 SRC="../builtinFonts/source/KoPub-Batang/KoPub Batang_Pro Medium.otf"
 KSX_INTERVALS=($($PY ks_x_1001_intervals.py))
 

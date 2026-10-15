@@ -20,7 +20,6 @@
 #include "MappedInputManager.h"
 #include "SdFirmwareUpdateActivity.h"
 #include "SettingsList.h"
-#include "SleepImageSelectionActivity.h"
 #include "activities/util/IntervalSelectionActivity.h"
 #include "components/UITheme.h"
 #include "components/UIThemeTokens.h"
@@ -58,9 +57,6 @@ void SettingsActivity::rebuildSettingsLists() {
   }
 
   // Append device-only ACTION items
-  // Sleep image selection sits under Display because it controls what shows
-  // when the device sleeps in Custom or Cover+Custom mode.
-  displaySettings.push_back(SettingInfo::Action(StrId::STR_SELECT_SLEEP_SCREENS, SettingAction::SelectSleepScreens));
   if (!BoardConfig::hasTouch()) {
     controlsSettings.insert(controlsSettings.begin(),
                             SettingInfo::Action(StrId::STR_REMAP_FRONT_BUTTONS, SettingAction::RemapFrontButtons));
@@ -336,9 +332,6 @@ void SettingsActivity::toggleCurrentSetting() {
         // USB Drive takes over the SD card and restarts on exit, so it replaces the stack.
         activityManager.goToUsbDrive();
         return;
-      case SettingAction::SelectSleepScreens:
-        startActivityForResult(std::make_unique<SleepImageSelectionActivity>(renderer, mappedInput), resultHandler);
-        break;
       case SettingAction::Language:
         // Row labels are translated once in rebuildRowItems() and don't
         // re-run on Pop (see ActivityManager::loop()), so a language switch

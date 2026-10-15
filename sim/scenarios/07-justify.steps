@@ -1,6 +1,23 @@
-# Justified text with character wrap (menu row 5 = alignment).
+# Default alignment is justified (spaces stretch, letters keep their spacing); then
+# Settings > Reader > alignment switches to left.
 wait:10
+shot:genesis1-justified
+press:right:100
+wait:1.5
+wait:4
+shot:genesis1-p2-justified
+press:left:100
+wait:1.5
+wait:3
 press:back:100
+wait:1.5
+press:right:100
+wait:1.5
+press:right:100
+wait:1.5
+press:right:100
+wait:1.5
+press:right:100
 wait:1.5
 press:right:100
 wait:1.5
@@ -14,8 +31,21 @@ press:right:100
 wait:1.5
 press:confirm:100
 wait:1.5
-shot:menu-justify
+wait:2
+press:confirm:100
+wait:1.5
+press:down:100
+wait:1.5
+press:down:100
+wait:1.5
+press:down:100
+wait:1.5
+press:confirm:100
+wait:1.5
+shot:reader-left
 press:back:100
 wait:1.5
-wait:8
-shot:genesis1-justified
+press:back:100
+wait:1.5
+wait:10
+shot:genesis1-left

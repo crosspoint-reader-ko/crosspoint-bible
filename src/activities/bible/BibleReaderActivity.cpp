@@ -77,12 +77,14 @@ bool BibleReaderActivity::openChapter(int newBook, int newChapter, int verse) {
   style.charWrap = BIBLE.prefs.justify != 0;
   style.spaceWidth = renderer.getSpaceWidth(fontId);
   const int fid = fontId;
+  // Pen advances, not ink widths: drawText starts each word at the pen position, so the
+  // layout must measure what the pen moves, or word gaps vary with the glyphs' bearings.
   style.measure = [this, fid](const std::string& token, bool bold) {
-    return renderer.getTextWidth(fid, token.c_str(), bold ? EpdFontFamily::BOLD : EpdFontFamily::REGULAR);
+    return renderer.getTextAdvanceX(fid, token.c_str(), bold ? EpdFontFamily::BOLD : EpdFontFamily::REGULAR);
   };
   const int nid = numberFontId;
   style.measureNumber = [this, nid](const std::string& digits) {
-    return renderer.getTextWidth(nid, digits.c_str(), EpdFontFamily::BOLD);
+    return renderer.getTextAdvanceX(nid, digits.c_str(), EpdFontFamily::BOLD);
   };
   layout.build(content, style);
 
@@ -314,66 +316,32 @@ void BibleReaderActivity::drawPage(int top, int left, bool grayPass) {
       }
     };
 
-    if (justified && line.justify && line.kind == bible::LineKind::Text) {
-      // Justified: spread the leftover width over every gap between characters (a verse
-      // number counts as one unit). Character wrap keeps the leftover under one character.
-      struct Unit {
-        std::string text;
-        int width;
-        bool number;
-        bool spaceAfter;
-      };
-      std::vector<Unit> units;
-      int natural = 0;
-      for (size_t k = 0; k < tokens.size(); k++) {
-        const std::string& t = tokens[k];
-        const bool last = k + 1 == tokens.size();
-        if (isVerseNumber(t)) {
-          const int w = renderer.getTextWidth(numberFontId, t.c_str() + 1, EpdFontFamily::BOLD);
-          units.push_back({t.substr(1), w, true, !last});
-          natural += w;
-        } else {
-          for (size_t p = 0; p < t.size();) {
-            size_t n = 1;
-            const auto c = static_cast<unsigned char>(t[p]);
-            if (c >= 0xF0) n = 4;
-            else if (c >= 0xE0) n = 3;
-            else if (c >= 0xC0) n = 2;
-            n = std::min(n, t.size() - p);
-            const std::string ch = t.substr(p, n);
-            const int w = renderer.getTextWidth(fontId, ch.c_str(), style);
-            p += n;
-            units.push_back({ch, w, false, p >= t.size() && !last});
-            natural += w;
-          }
-        }
-        if (!last) natural += spaceWidth;
+    // Word widths are pen advances, as measured by the layout. Letter spacing stays the
+    // font's own; justified lines widen only the spaces, spreading the leftover evenly.
+    std::vector<int> widths;
+    widths.reserve(tokens.size());
+    int natural = 0;
+    for (const auto& t : tokens) {
+      const int w = isVerseNumber(t) ? renderer.getTextAdvanceX(numberFontId, t.c_str() + 1, EpdFontFamily::BOLD)
+                                     : renderer.getTextAdvanceX(fontId, t.c_str(), style);
+      widths.push_back(w);
+      natural += w;
+    }
+    const int gaps = static_cast<int>(tokens.size()) - 1;
+    int extra = 0;
+    if (justified && line.justify && line.kind == bible::LineKind::Text && gaps > 0) {
+      extra = std::max(0, width - natural - gaps * spaceWidth);
+    }
+    int x = left;
+    for (int k = 0; k < static_cast<int>(tokens.size()); k++) {
+      const std::string& t = tokens[k];
+      if (isVerseNumber(t)) {
+        drawNumber(t.c_str() + 1, x, widths[k]);
+      } else {
+        renderer.drawText(fontId, x, y, t.c_str(), true, style);
       }
-      const int gaps = static_cast<int>(units.size()) - 1;
-      const int extra = gaps > 0 ? std::max(0, width - natural) : 0;
-      int x = left;
-      for (int k = 0; k < static_cast<int>(units.size()); k++) {
-        const Unit& u = units[k];
-        if (u.number) {
-          drawNumber(u.text.c_str(), x, u.width);
-        } else {
-          renderer.drawText(fontId, x, y, u.text.c_str(), true, style);
-        }
-        x += u.width + (u.spaceAfter ? spaceWidth : 0);
-        if (k < gaps) x += extra / gaps + (k < extra % gaps ? 1 : 0);
-      }
-    } else {
-      int x = left;
-      for (const auto& t : tokens) {
-        if (isVerseNumber(t)) {
-          const int w = renderer.getTextWidth(numberFontId, t.c_str() + 1, EpdFontFamily::BOLD);
-          drawNumber(t.c_str() + 1, x, w);
-          x += w + spaceWidth;
-        } else {
-          renderer.drawText(fontId, x, y, t.c_str(), true, style);
-          x += renderer.getTextWidth(fontId, t.c_str(), style) + spaceWidth;
-        }
-      }
+      x += widths[k] + spaceWidth;
+      if (k < gaps && extra > 0) x += extra / gaps + (k < extra % gaps ? 1 : 0);
     }
     y += layout.lineAdvance(line);
   }

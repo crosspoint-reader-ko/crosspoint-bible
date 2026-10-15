@@ -37,8 +37,6 @@ std::string BibleMenuActivity::valueOf(int row) const {
       return prefs.versePerLine ? tr(STR_BIBLE_LAYOUT_VERSES) : tr(STR_BIBLE_LAYOUT_PARAGRAPHS);
     case HEADINGS:
       return prefs.showHeadings ? tr(STR_STATE_ON) : tr(STR_STATE_OFF);
-    case ALIGN:
-      return prefs.justify ? tr(STR_BIBLE_ALIGN_JUSTIFY) : tr(STR_BIBLE_ALIGN_LEFT);
     case SMOOTHING:
       return SETTINGS.textAntiAliasing ? tr(STR_STATE_ON) : tr(STR_STATE_OFF);
     case ORIENTATION: {
@@ -63,9 +61,6 @@ void BibleMenuActivity::activate(int row) {
       finish();
       return;
     }
-    case ALIGN:
-      prefs.justify = prefs.justify ? 0 : 1;
-      break;
     case SMOOTHING:
       // Off: one display refresh per page instead of two (no grayscale pass).
       SETTINGS.textAntiAliasing = SETTINGS.textAntiAliasing ? 0 : 1;
@@ -130,7 +125,7 @@ void BibleMenuActivity::render(RenderLock&&) {
 
   static constexpr StrId labels[ROW_COUNT] = {
       StrId::STR_BIBLE_GOTO,      StrId::STR_BIBLE_ADD_BOOKMARK, StrId::STR_BIBLE_BOOKMARKS,
-      StrId::STR_BIBLE_FONT_SIZE, StrId::STR_BIBLE_LINE_SPACING, StrId::STR_BIBLE_ALIGN,
+      StrId::STR_BIBLE_FONT_SIZE, StrId::STR_BIBLE_LINE_SPACING,
       StrId::STR_BIBLE_LAYOUT,    StrId::STR_BIBLE_HEADINGS,     StrId::STR_BIBLE_SMOOTHING,
       StrId::STR_ORIENTATION,     StrId::STR_SETTINGS_TITLE,
   };
