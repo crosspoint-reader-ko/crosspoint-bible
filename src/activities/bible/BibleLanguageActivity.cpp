@@ -21,11 +21,11 @@ struct Name {
   const char* english;
 };
 constexpr Name NAMES[] = {
-    {"ar", "Arabic"},  {"da", "Danish"},     {"de", "German"},  {"en", "English"},    {"es", "Spanish"},
-    {"fa", "Persian"}, {"fi", "Finnish"},    {"fr", "French"},  {"he", "Hebrew"},     {"hi", "Hindi"},
-    {"id", "Indonesian"}, {"is", "Icelandic"}, {"it", "Italian"}, {"ja", "Japanese"},  {"ko", "Korean"},
-    {"ml", "Malayalam"}, {"nb", "Norwegian"}, {"nl", "Dutch"},   {"pt", "Portuguese"}, {"ru", "Russian"},
-    {"so", "Somali"},  {"sv", "Swedish"},    {"sw", "Swahili"}, {"zh", "Chinese"},
+    {"ar", "Arabic"},     {"da", "Danish"},    {"de", "German"},  {"en", "English"},    {"es", "Spanish"},
+    {"fa", "Persian"},    {"fi", "Finnish"},   {"fr", "French"},  {"he", "Hebrew"},     {"hi", "Hindi"},
+    {"id", "Indonesian"}, {"is", "Icelandic"}, {"it", "Italian"}, {"ja", "Japanese"},   {"ko", "Korean"},
+    {"ml", "Malayalam"},  {"nb", "Norwegian"}, {"nl", "Dutch"},   {"pt", "Portuguese"}, {"ru", "Russian"},
+    {"so", "Somali"},     {"sv", "Swedish"},   {"sw", "Swahili"}, {"zh", "Chinese"},
 };
 }  // namespace
 
@@ -69,7 +69,8 @@ void BibleLanguageActivity::loop() {
     selected = (selected + n - 1) % n;
     requestUpdate();
   }
-  if (n > 0 && (mappedInput.wasReleased(swap ? Button::Left : Button::Right) || mappedInput.wasReleased(Button::Down))) {
+  if (n > 0 &&
+      (mappedInput.wasReleased(swap ? Button::Left : Button::Right) || mappedInput.wasReleased(Button::Down))) {
     selected = (selected + 1) % n;
     requestUpdate();
   }
@@ -96,7 +97,8 @@ void BibleLanguageActivity::render(RenderLock&&) {
 
   const auto drawAll = [&]() {
     renderer.drawText(titleFont, x, top + 10, tr(STR_LANGUAGE), true, EpdFontFamily::BOLD);
-    renderer.drawText(labelFont, x, top + 10 + renderer.getLineHeight(titleFont), tr(STR_BIBLE_LANGUAGE_HINT));
+    const std::string hint = renderer.truncatedText(labelFont, tr(STR_BIBLE_LANGUAGE_HINT), width);
+    renderer.drawText(labelFont, x, top + 10 + renderer.getLineHeight(titleFont), hint.c_str());
     renderer.drawLine(x, listTop - 8, x + width, listTop - 8, 2, true);
     for (int i = first; i < std::min<int>(static_cast<int>(langs.size()), first + perPage); i++) {
       const auto& l = langs[i];

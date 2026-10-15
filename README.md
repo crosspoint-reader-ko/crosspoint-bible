@@ -1,105 +1,161 @@
 # CrossPoint Bible
 
-Xteink X4 / X3(ESP32-C3)용 성경 전용 펌웨어. [CrossPoint 한국어 펌웨어](https://github.com/crosspoint-reader-ko/crosspoint-reader-ko)에서 성경 읽기에 필요 없는 기능(네트워크, OTA, 서재, EPUB/TXT 리더 등)을 걷어내고 책·장·절 이동, 큰 글씨, 북마크를 넣었다.
+Bible firmware for the Xteink X4 and X3 (ESP32-C3) e-readers. It is built from [CrossPoint Reader](https://github.com/crosspoint-reader/crosspoint-reader): the general reader features (network, OTA, library, EPUB/TXT reader) are gone, and in their place are fast book/chapter/verse navigation, large text and bookmarks.
 
-릴리스 펌웨어에는 **개역한글(1952/1961, 공개 저작물)** 이 들어 있다. 다른 번역본은 직접 변환해 SD 카드에 넣는다([성경 바꾸기](#성경-바꾸기)).
+The firmware ships with the English [Open Translation Bible](https://openbible.uk). 23 more languages, including Korean (개역한글 and 열린 성경), come as SD card bundles on the [Releases](https://github.com/crosspoint-reader-ko/crosspoint-bible/releases) page.
 
-| 부팅 | 읽기 | 장절 이동 후 | 절전 |
+| Boot | Reading | After a jump | Sleep |
 |---|---|---|---|
-| ![부팅 화면](docs/screenshots/splash.png) | ![읽기 화면](docs/screenshots/reader.png) | ![요한복음 3:16으로 이동](docs/screenshots/jump.png) | ![절전 화면](docs/screenshots/sleep.png) |
+| ![Boot screen](docs/screenshots/splash.png) | ![Reading](docs/screenshots/reader.png) | ![John 3:16](docs/screenshots/jump.png) | ![Sleep screen](docs/screenshots/sleep.png) |
 
-스크린샷은 x4prosim 에뮬레이터(X3, 528×792)에서 찍었다. 읽기 화면의 본문은 개역개정이다.
+Screenshots are from the x4prosim emulator (X3, 528×792).
 
-## 설치
+## Install
 
-1. [Releases](https://github.com/crosspoint-reader-ko/crosspoint-bible/releases)에서 `crosspoint-bible-<버전>-x4-x3.bin`을 받는다.
-2. CrossPoint 펌웨어가 깔린 기기라면 SD 카드에 복사하고 설정 > 시스템 > SD 카드 펌웨어 업데이트에서 고른다.
-3. USB로 올릴 때는 `esptool.py --chip esp32c3 write_flash 0x10000 crosspoint-bible-<버전>-x4-x3.bin`.
+1. Download `crosspoint-bible-<version>-x4-x3.bin` from [Releases](https://github.com/crosspoint-reader-ko/crosspoint-bible/releases).
+2. On a device running CrossPoint firmware: copy it to the SD card and pick it in Settings > System > SD Card Firmware Update.
+3. Over USB: `esptool.py --chip esp32c3 write_flash 0x10000 crosspoint-bible-<version>-x4-x3.bin`.
 
-이후 갱신도 SD 카드 펌웨어 업데이트로 한다(네트워크 기능이 없다).
+Later updates also go through SD Card Firmware Update. The firmware has no network features.
 
-## 사용법
+## Languages
 
-### 읽기
+English is built in. For any other language, download its bundle and unzip it at the root of the SD card.
 
-- 켜면 마지막에 읽던 곳이 열린다.
-- 좌우 버튼, 옆 버튼: 쪽 넘김. 장과 책 경계를 넘어 이어진다. 길게 누르면 장 단위로 이동한다.
-- 확인: 장절 이동. 뒤로: 메뉴.
-- 처음 설정은 18pt, 줄 간격 보통, 양쪽 정렬, 절마다 줄바꿈이다.
+1. From the release, download `crosspoint-bible-<version>-<code>.zip` for each language you want (`ko` Korean, `ja` Japanese, `zh` Chinese, `es` Spanish, ...).
+2. Unzip it into the root of the SD card. The zip already contains the `bible/` folder, so the files land in `/bible/lang/<code>/` and `/bible/fonts/<code>/`. Several languages can share one card.
+3. On the device, open the menu (Back) > Language, or Settings > System > Language. The list shows English and every installed language. Choosing one switches the menus, the Bible and the fonts together.
 
-### 장절 이동
-
-책은 구약/신약 약어 격자에서, 장과 절은 번호 격자에서 고른다. 좌우 버튼은 한 칸, 옆 버튼은 한 줄, 옆 버튼을 길게 누르면 한 쪽씩 움직인다. 장 화면에서 확인을 길게 누르면 1절로 바로 간다. 고른 절은 번호에 검은 상자로 표시된다.
-
-| 책 | 장 | 절 |
-|---|---|---|
-| ![책 선택](docs/screenshots/books.png) | ![장 선택](docs/screenshots/chapters.png) | ![절 선택](docs/screenshots/verses.png) |
-
-### 메뉴와 보기 설정
-
-메뉴: 장절 이동, 북마크 추가, 북마크, 글자 크기(14/16/18/22/28pt), 줄 간격, 절마다 줄바꿈/문단, 소제목, 글자 다듬기, 화면 방향, 성경 정보, 설정.
-
-| 메뉴 | 28pt | 14pt 문단 | 왼쪽 정렬 |
-|---|---|---|---|
-| ![메뉴](docs/screenshots/menu.png) | ![28pt](docs/screenshots/size-28.png) | ![14pt 문단 보기](docs/screenshots/paragraphs-14.png) | ![왼쪽 정렬](docs/screenshots/align-left.png) |
-
-- 양쪽 정렬은 글자 단위로 줄을 바꾸고, 글자 간격은 그대로 둔 채 남는 폭을 띄어쓰기에만 나눈다. 마침표 같은 문장 부호는 줄 첫머리에 오지 않는다. 정렬은 설정 > 리더에서 바꾼다.
-- 글자 다듬기(회색조 안티앨리어싱)를 켜면 쪽을 넘길 때 화면이 두 번 갱신된다. 끄면 한 번이다.
-
-### 북마크
-
-메뉴 > 북마크 추가에서 폴더를 고르거나 새 폴더를 만든다. 폴더 이름은 화면 키보드(두벌식 한글, 영문/숫자)로 입력한다. 저장되는 절은 장절 이동 직후 표시된 절, 아니면 그 쪽의 첫 절이다. 폴더와 북마크는 확인을 길게 눌러 지운다. 파일은 SD 카드 `/.crosspoint/bible-bookmarks.txt`.
-
-| 폴더 고르기 | 새 폴더 이름 | 폴더 | 북마크 | 삭제 |
-|---|---|---|---|---|
-| ![북마크 추가](docs/screenshots/bookmark-add.png) | ![한글 키보드](docs/screenshots/keyboard.png) | ![폴더 목록](docs/screenshots/bookmark-folders.png) | ![북마크 목록](docs/screenshots/bookmark-items.png) | ![삭제 확인](docs/screenshots/bookmark-delete.png) |
-
-### 성경 정보와 설정
-
-| 내장 개역한글 | 성경 정보 | 설정 > 화면 | 설정 > 리더 |
-|---|---|---|---|
-| ![개역한글](docs/screenshots/builtin-krv.png) | ![성경 정보](docs/screenshots/info.png) | ![화면 설정](docs/screenshots/settings-display.png) | ![리더 설정](docs/screenshots/settings-reader.png) |
-
-- 성경 정보: 번역본, 판, 저작권 또는 이용 허락, 출처, 버전, 구성(권·장·절·소제목 수), 언어, 위치(내장/SD).
-- 절전 화면: 어둡게(표지), 밝게(표지 반전), 없음, 빠른 재개(지금 쪽에 달 표시).
-- 설정 > 시스템: 절전 시간, 시계(시계 칩이 있는 기기), SD 카드 펌웨어 업데이트, 기기 정보, 언어.
-
-## 성경 바꾸기
-
-SD 카드 `/bible/`에 `.cpb`가 있으면 내장 성경보다 먼저 쓴다. 여러 개면 이름순 첫 파일이다.
-
-```sh
-# EPUB("ESV 템플릿" 한국어 성경)
-python3 tools/bible/epub2cpb.py "성경전서 개역개정판.epub" nkrv.cpb --title 개역개정
-# getBible v2 JSON (https://api.getbible.net/v2/<번역>.json)
-python3 tools/bible/epub2cpb.py korean.json krv1961.cpb --title 개역한글
+```
+/bible/
+  lang/
+    ko/
+      krv1961.cpb          개역한글 (1952/1961)
+      otb.cpb              열린 성경
+    ja/
+      otb.cpb
+  fonts/
+    ko/
+      KoPub 바탕/14.epdfont 16.epdfont 18.epdfont 22.epdfont 28.epdfont
+      리디바탕/...
+      ui/10.epdfont        menu font
+      LICENSES/
+    ja/
+      Noto Serif JP/...
+      ui/10.epdfont
 ```
 
-저작권이 있는 번역본(예: 개역개정, © 대한성서공회)은 개인적으로만 쓰고 배포하지 않는다. 형식은 [docs/bible-pack-format.md](docs/bible-pack-format.md), 내장 개역한글의 출처는 [data/bible/README.md](data/bible/README.md).
+- When a language has more than one Bible, the menu shows **Bible** to choose one (Korean: 개역한글, 열린 성경). When it has more than one reader font, the menu shows **Font** (Korean: KoPub 바탕, 리디바탕).
+- Latin and Cyrillic languages (da, de, es, fi, fr, id, is, it, nb, nl, pt, ru, so, sv, sw) use the built-in Noto Serif, so their bundles hold only the Bible.
+- The reading position and bookmarks carry over when you switch: every Bible uses the same 66-book numbering.
 
-## 빌드
+| Language list | 한국어 | 日本語 | العربية |
+|---|---|---|---|
+| ![Language list](docs/screenshots/languages.png) | ![Korean](docs/screenshots/lang-ko.png) | ![Japanese](docs/screenshots/lang-ja.png) | ![Arabic](docs/screenshots/lang-ar.png) |
+
+| 简体中文 | עברית | हिन्दी | Русский |
+|---|---|---|---|
+| ![Chinese](docs/screenshots/lang-zh.png) | ![Hebrew](docs/screenshots/lang-he.png) | ![Hindi](docs/screenshots/lang-hi.png) | ![Russian](docs/screenshots/lang-ru.png) |
+
+Scripts, fonts and pack metadata are described in [docs/languages.md](docs/languages.md).
+
+## Use
+
+### Reading
+
+- The device opens where you left off.
+- Left/right and the side buttons turn pages, across chapter and book boundaries. Hold to move a chapter.
+- Confirm opens Go to. Back opens the menu.
+- Defaults: 18 pt, normal line spacing, justified, one verse per line. English text is hyphenated.
+
+### Go to
+
+Pick the book from the Old/New Testament grid, then the chapter and the verse by number. Left/right moves one cell, the side buttons one row, holding a side button one page. On the chapter screen, hold Confirm to open at verse 1. The chosen verse is marked with a black box.
+
+| Book | Chapter | Verse |
+|---|---|---|
+| ![Books](docs/screenshots/books.png) | ![Chapters](docs/screenshots/chapters.png) | ![Verses](docs/screenshots/verses.png) |
+
+### Menu and view settings
+
+Menu: Go to, Add bookmark, Bookmarks, Language, Bible, Font, Text size (14/16/18/22/28 pt), Line spacing, Layout (verse per line or paragraphs), Section titles, Smooth text, Orientation, About this Bible, Settings.
+
+| Menu | 28 pt | 14 pt paragraphs | Left aligned |
+|---|---|---|---|
+| ![Menu](docs/screenshots/menu.png) | ![28 pt](docs/screenshots/size-28.png) | ![14 pt paragraphs](docs/screenshots/paragraphs-14.png) | ![Left aligned](docs/screenshots/align-left.png) |
+
+- Justified text keeps letter spacing fixed and spreads the leftover width over the spaces only. A line that would need gaps wider than about 2.5 spaces stays ragged. Korean, Chinese and Japanese break between characters; opening and closing punctuation follow line-breaking rules. Alignment is in Settings > Reader.
+- With Smooth text (grayscale anti-aliasing) on, a page turn refreshes the screen twice; off, once.
+
+### Bookmarks
+
+Menu > Add bookmark: choose a folder or make a new one. Folder names are typed on the on-screen keyboard (Latin letters and digits; Korean adds 두벌식 Hangul). The saved verse is the one you jumped to, or the first verse on the page. Hold Confirm on a folder or bookmark to delete it. The file is `/.crosspoint/bible-bookmarks.txt` on the SD card.
+
+| Choose a folder | New folder | Folders | Bookmarks | Delete |
+|---|---|---|---|---|
+| ![Add bookmark](docs/screenshots/bookmark-add.png) | ![Keyboard](docs/screenshots/keyboard.png) | ![Folders](docs/screenshots/bookmark-folders.png) | ![Bookmarks](docs/screenshots/bookmark-items.png) | ![Delete](docs/screenshots/bookmark-delete.png) |
+
+### About this Bible and settings
+
+| About this Bible | Settings > Display | Settings > Reader | Settings > System |
+|---|---|---|---|
+| ![About](docs/screenshots/info.png) | ![Display](docs/screenshots/settings-display.png) | ![Reader](docs/screenshots/settings-reader.png) | ![System](docs/screenshots/settings-system.png) |
+
+- About this Bible: name, edition, copyright or license, source, version, size (books, chapters, verses, section titles), language, location (built in or SD).
+- Sleep screen: Dark (cover), Light (inverted cover), None, or Quick Resume (the current page with a moon).
+- Settings > System: time to sleep, clock (on devices with an RTC), SD card firmware update, about, language.
+
+## Your own Bible
+
+`tools/bible/epub2cpb.py` converts an EPUB, a getBible v2 JSON file or an Open Translation Bible language folder into a `.cpb` pack. Put the pack in `/bible/lang/<code>/` to add it to that language (or in `/bible/`, where it joins its own language).
 
 ```sh
-~/.platformio/penv/bin/pio run -e default            # 개발 빌드
-~/.platformio/penv/bin/pio run -e gh_release         # 릴리스 빌드
+python3 tools/bible/epub2cpb.py MyBible.epub mybible.cpb --title "My Bible" --lang en
+python3 tools/bible/epub2cpb.py korean.json krv1961.cpb --title 개역한글 --lang ko
+```
+
+Keep copyrighted translations for personal use and do not redistribute them. The format is in [docs/bible-pack-format.md](docs/bible-pack-format.md), the sources of the shipped packs in [data/bible/README.md](data/bible/README.md).
+
+## Build
+
+```sh
+~/.platformio/penv/bin/pio run -e default            # development build
+~/.platformio/penv/bin/pio run -e gh_release         # release build
 ~/.platformio/penv/bin/pio run -e default -t upload
 ```
 
-빌드할 때 `scripts/embed_bible_pack.py`가 내장할 성경을 고른다. `BIBLE_EPUB`(EPUB 또는 JSON), `BIBLE_PACK`(.cpb) 환경 변수가 없으면 `data/bible/krv1961.cpb`다. `BIBLE_EMBED=0`이면 내장하지 않는다.
+The build embeds `data/bible/otb-en.cpb` (`scripts/embed_bible_pack.py`). `BIBLE_PACK` (a `.cpb`) or `BIBLE_EPUB` (EPUB or getBible JSON) embed another Bible; `BIBLE_EMBED=0` embeds none.
 
-본문 글꼴은 KoPub 바탕 Medium을 KS X 1001 한글(2,350자)로 줄여 압축한 것이다(`lib/EpdFont/scripts/convert-bible-fonts.sh`). 부팅·절전 표지는 `tools/bible/make_cover.py`가 그린다.
+Language bundles:
 
-## 테스트
+```sh
+git clone --filter=blob:none https://github.com/OpenTranslationBible/open-bible.git build/otb
+git -C build/otb checkout 31d411ac1c2d277242a3bd85697f354eaa11526b   # the commit pinned in tools/bible/languages.json
+pip install fonttools freetype-py uharfbuzz pillow
+python3 tools/bible/bundle.py --otb build/otb                    # dist/bundles/crosspoint-bible-<version>-<code>.zip
+python3 tools/bible/bundle.py --otb build/otb --lang ko ja       # some languages
+python3 tools/bible/bundle.py --otb build/otb --lang --english data/bible/otb-en.cpb   # the built-in English pack
+```
+
+Fonts are downloaded at the versions in `tools/bible/fonts.lock.json` and subset to the characters each bundle uses. The release workflow builds the firmware and every bundle.
+
+## Test
 
 ```sh
 python3 tools/bible/test_epub2cpb.py
+python3 tools/bible/test_shape.py
 cmake -S test -B build/test && cmake --build build/test -j8
-BIBLE_CPB=data/bible/krv1961.cpb ctest --test-dir build/test
-sim/screen-test.sh -b      # x4prosim 에뮬레이터 화면 테스트 (작업 공간의 ../x4prosim 필요)
+BIBLE_CPB=$PWD/data/bible/krv1961.cpb BIBLE_CPB_EN=$PWD/data/bible/otb-en.cpb ctest --test-dir build/test
+sim/make-sd.sh             # SD card folders for the language scenarios, from dist/bundles
+sim/screen-test.sh -b      # x4prosim emulator screen tests (needs ../x4prosim in the workspace)
 ```
 
-계획과 진행은 [docs/bible-plan.md](docs/bible-plan.md).
+The plan and progress are in [docs/bible-plan.md](docs/bible-plan.md).
 
-## 라이선스
+## License
 
-MIT([LICENSE](LICENSE)). CrossPoint Reader와 그 한국어 포크를 바탕으로 한다. KoPub 글꼴은 한국출판인회의의 KoPub 서체 이용 조건을 따른다.
+MIT ([LICENSE](LICENSE)), based on CrossPoint Reader and its Korean fork.
+
+- Open Translation Bible: CC BY-SA 4.0, "Open Translation Bible (https://openbible.uk), CC BY-SA 4.0". The converted packs carry the same license.
+- 개역한글 (1952/1961): public domain.
+- Fonts: SIL Open Font License 1.1 (Noto, RIDIBatang, Pretendard, Vazirmatn) and the KoPub font terms (Korean Publishers Association). Each bundle includes the licenses of its fonts in `/bible/fonts/<code>/LICENSES/`.
