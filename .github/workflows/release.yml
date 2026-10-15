@@ -21,6 +21,8 @@ jobs:
           have=$(sed -n 's/^version = //p' platformio.ini | head -1)
           [ "$want" = "$have" ] || { echo "tag $GITHUB_REF_NAME but platformio.ini has $have"; exit 1; }
       - uses: ./.github/actions/setup-pio
+        with:
+          env: gh_release
       - name: Build
         run: pio run -e gh_release -j1
       - name: Collect assets

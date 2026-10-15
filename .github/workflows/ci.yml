@@ -35,6 +35,8 @@ jobs:
         with:
           submodules: recursive
       - uses: ./.github/actions/setup-pio
+        with:
+          env: default
       # No EPUB here, so the build embeds data/bible/krv1961.cpb (개역한글, public domain).
       - run: pio run -e default -j1
       - uses: actions/upload-artifact@v6

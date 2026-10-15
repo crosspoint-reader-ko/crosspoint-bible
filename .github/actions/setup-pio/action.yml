@@ -1,5 +1,9 @@
 name: Set up PlatformIO
-description: Python, PlatformIO (pioarduino) and the package cache.
+description: Python, PlatformIO (pioarduino), the package cache and the platform penv pin.
+inputs:
+  env:
+    description: PlatformIO environment the job builds
+    required: true
 runs:
   using: composite
   steps:
@@ -22,5 +26,18 @@ runs:
     - uses: actions/cache@v4
       with:
         path: ~/.platformio
-        key: pio-v2-${{ runner.os }}-${{ hashFiles('platformio.ini') }}
-        restore-keys: pio-v2-${{ runner.os }}-
+        key: pio-v3-${{ runner.os }}-${{ inputs.env }}-${{ hashFiles('platformio.ini') }}
+        restore-keys: pio-v3-${{ runner.os }}-${{ inputs.env }}-
+    - name: Pin pioarduino core inside the platform penv
+      shell: bash
+      run: |
+        set -euo pipefail
+        # Envs with custom_sdkconfig run a nested `pio run` from ~/.platformio/penv, which the
+        # platform bootstraps with an open-ended "pioarduino>=6.1.19" (now 6.2.0). That core
+        # wants tool-scons 4.11.1 while platform 55.03.311 pins 4.8.1; they reinstall over
+        # each other and the running SCons loses its package mid-build ("No module named
+        # 'SCons.Tool.FortranCommon'"). Keep the penv core on the outer core's version.
+        # https://github.com/pioarduino/platform-espressif32/issues/529
+        pio pkg install -e ${{ inputs.env }}
+        uv pip install --python ~/.platformio/penv/bin/python "pioarduino==6.1.19"
+        ~/.platformio/penv/bin/pio --version
