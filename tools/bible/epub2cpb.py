@@ -334,10 +334,44 @@ def _strip_article(word):
     return word[2:] if word.startswith("ال") and len(word) > 4 else word
 
 
+# The book grid has six columns; on the X4 (480 px wide) a cell leaves about 68 px for the
+# label, drawn in 14 pt bold. Widths come from the built-in Noto Serif, so the check applies
+# to scripts it covers (Latin, Greek, Cyrillic); other scripts use short labels anyway.
+GRID_LABEL_WIDTH = 68
+GRID_FONT_HEADER = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "lib", "EpdFont",
+                                "builtinFonts", "notoserif_14_bold.h")
+_grid_advances = None
+
+
+def grid_label_width(text):
+    """Pen advance of text in the built-in 14 pt bold Noto Serif, or None when a character is
+    not in that font (the label is then drawn with a bundle font and not measured here)."""
+    global _grid_advances
+    if _grid_advances is None:
+        _grid_advances = {}
+        try:
+            with open(GRID_FONT_HEADER, encoding="utf-8") as f:
+                for m in re.finditer(r"\{ *\d+, *\d+, *(\d+),[^}]*\}, // (?:U\+([0-9A-F]+)|(.))\n", f.read()):
+                    cp = int(m.group(2), 16) if m.group(2) else ord(m.group(3))
+                    _grid_advances[cp] = int(m.group(1)) / 16  # 12.4 fixed point
+        except FileNotFoundError:
+            pass
+    if not _grid_advances or any(ord(ch) not in _grid_advances for ch in text):
+        return None
+    return sum(_grid_advances[ord(ch)] for ch in text)
+
+
+def fits_grid(text):
+    w = grid_label_width(text)
+    return w is None or w <= GRID_LABEL_WIDTH
+
+
 def derive_abbreviations(book_names, limit=15):
     """Short unique abbreviations from book names: a leading number ("1 ", "1. ", or an ordinal
     word anywhere) becomes a digit prefix; then the first 3 letters of the first word, growing
-    (initials of the other words, then more letters) until unique within the 66 books."""
+    (initials of the other words, then more letters) until unique within the 66 books. Each
+    must fit a book-grid cell (fits_grid); when the longer ones do not, two letters or the
+    first letter with a later one are tried."""
     out, used = {}, set()
     for bk in range(1, 67):
         words = (book_names.get(bk) or f"B{bk}").replace(".", " ").split()
@@ -358,10 +392,12 @@ def derive_abbreviations(book_names, limit=15):
         candidates = [_prefix(first, 3), _prefix(first, 3) + initials]
         candidates += [_prefix(first, n) for n in range(4, len(first) + 1)]
         candidates += [first + initials, "".join(_letters(w) for w in words)]
+        candidates += [_prefix(first, 2)] + [first[0] + ch for ch in first[2:] if ch.isalpha()]
+        candidates += [first[0] + ch for w in words[1:] for ch in _letters(w)[:1]]
         choice = None
         for c in candidates:
             c = num + c
-            if c and c not in used and len(c.encode("utf-8")) <= limit:
+            if c and c not in used and len(c.encode("utf-8")) <= limit and fits_grid(c):
                 choice = c
                 break
         if choice is None:

@@ -235,7 +235,14 @@ class AbbreviationTest(unittest.TestCase):
             a = epub2cpb.abbreviations_for(lang, names)
             self.assertEqual(len(set(a.values())), 66, lang)
             self.assertTrue(all(len(x.encode()) <= 15 for x in a.values()), lang)
-        self.assertEqual(epub2cpb.abbreviations_for("en", names)[9], "1Sam")
+            self.assertTrue(all(epub2cpb.fits_grid(x) for x in a.values()),
+                            (lang, [x for x in a.values() if not epub2cpb.fits_grid(x)]))
+        self.assertEqual(epub2cpb.abbreviations_for("en", names)[9], "1Sa")
+
+    def test_grid_width(self):
+        self.assertIsNotNone(epub2cpb.grid_label_width("Gen"))
+        self.assertIsNone(epub2cpb.grid_label_width("창"))  # not in the built-in font: not measured
+        self.assertFalse(epub2cpb.fits_grid("2Thess"))
 
     def test_derived(self):
         names = {bk: f"Kitabu {bk}" for bk in range(1, 67)}
@@ -243,7 +250,7 @@ class AbbreviationTest(unittest.TestCase):
                       19: "صموئيل الأول", 20: "صموئيل الثاني", 1: "التكوين"})
         a = epub2cpb.derive_abbreviations(names)
         self.assertEqual(len(set(a.values())), 66)
-        self.assertEqual((a[9], a[10], a[43], a[66]), ("1Sam", "2Sam", "Joh", "JohÅ"))
+        self.assertEqual((a[9], a[10], a[43], a[66]), ("1Sa", "2Sa", "Joh", "Joha"))
         self.assertEqual((a[19], a[20], a[1]), ("1صمو", "2صمو", "تكو"))
 
     def test_otb_pack_uses_short_abbreviations(self):

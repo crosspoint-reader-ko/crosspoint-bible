@@ -185,6 +185,34 @@ def _fill_gaps(cps):
     return out
 
 
+def load_flags(path):
+    """FreeType load flags for a font from the cache: "hinting": "autohint" in its lock entry forces
+    the auto-hinter. The Noto CJK fonts carry no hinting instructions, so their thin horizontal
+    strokes land between two pixel rows and come out as two rows of gray that 2-bit drops;
+    the auto-hinter snaps them to one dark row."""
+    import freetype
+
+    font_id = os.path.basename(os.path.dirname(os.path.abspath(path)))
+    entry = load_lock()["fonts"].get(font_id, {})
+    flags = freetype.FT_LOAD_RENDER
+    if entry.get("hinting") == "autohint":
+        flags |= freetype.FT_LOAD_FORCE_AUTOHINT
+    return flags
+
+
+def text_advance(font_path, size_pt, text):
+    """Pen advance of text in whole pixels, rendered as render_epdfont does (no kerning)."""
+    import freetype
+
+    face = freetype.Face(font_path)
+    face.set_char_size(size_pt << 6, size_pt << 6, DPI, DPI)
+    total = 0
+    for ch in text:
+        face.load_char(ch, load_flags(font_path))
+        total += face.glyph.advance.x >> 6
+    return total
+
+
 def render_epdfont(font_path, size_pt, codepoints, out_path):
     """Write a 2-bit .epdfont with the glyphs of `codepoints` the font has. Returns the missing code points.
 
@@ -197,6 +225,7 @@ def render_epdfont(font_path, size_pt, codepoints, out_path):
     for p in [font_path] if isinstance(font_path, str) else font_path:
         f = freetype.Face(p)
         f.set_char_size(size_pt << 6, size_pt << 6, DPI, DPI)
+        f.load_flags = load_flags(p)
         faces.append(f)
     face = faces[0]
     glyphs, bitmaps, have, missing, offset = [], [], [], [], 0
@@ -205,7 +234,7 @@ def render_epdfont(font_path, size_pt, codepoints, out_path):
         if src is None:
             missing.append(cp)
             continue
-        src[0].load_glyph(src[1], freetype.FT_LOAD_RENDER)
+        src[0].load_glyph(src[1], src[0].load_flags)
         g = src[0].glyph
         bm = g.bitmap
         w, h, pitch = bm.width, bm.rows, bm.pitch

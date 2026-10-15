@@ -2,6 +2,7 @@
  "_comment": "Languages CrossPoint Bible ships. One SD bundle per language except the built-in English. Arabic, Persian and Hebrew render at runtime (MiniBidi, as upstream CrossPoint); Hindi and Malayalam are pre-shaped into private-use glyphs (shaped: true). See docs/languages.md.",
  "otb": {
   "repo": "https://github.com/OpenTranslationBible/open-bible",
+  "commit": "31d411ac1c2d277242a3bd85697f354eaa11526b",
   "license": "CC BY-SA 4.0",
   "attribution": "Open Translation Bible (https://openbible.uk), CC BY-SA 4.0"
  },

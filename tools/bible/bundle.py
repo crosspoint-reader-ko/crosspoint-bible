@@ -325,6 +325,15 @@ def build_language(entry, cfg, args, pool):
                 font_ids += FALLBACKS[r["font"]]
             for pt in sizes:
                 jobs.append((path, pt, cps, os.path.join(font_dir, r["label"], f"{pt}.epdfont")))
+            # Book-grid labels are drawn with this font, down to the smallest size. Arabic script is
+            # joined at runtime (MiniBidi) and narrower than its isolated letters measured here.
+            primary = path if isinstance(path, str) else path[0]
+            for _, _, p in ([] if entry.get("bidi") == "runtime" else built):
+                wide = sorted({a for a in p["abbrs"].values()
+                               if fonts.text_advance(primary, sizes[0], a) > epub2cpb.GRID_LABEL_WIDTH})
+                if wide:
+                    report["notes"].append(f"abbreviations wider than a book-grid cell in {r['label']}: "
+                                           f"{' '.join(wide)}")
         if ui_font and (reader or entry["script"] not in BUILTIN_SCRIPTS):
             path, _ = fonts.fetch(ui_font, args.cache)
             font_ids.append(ui_font)
@@ -390,7 +399,8 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--otb", required=True, help="Open Translation Bible checkout (has lang/<code>/)")
     ap.add_argument("--out", default=os.path.join(ROOT, "dist", "bundles"))
-    ap.add_argument("--lang", nargs="*", help="language codes (default: every non-built-in language)")
+    ap.add_argument("--lang", nargs="*", help="language codes (default: every non-built-in language; "
+                    "none with --english builds only the English pack)")
     ap.add_argument("--cache", default=fonts.DEFAULT_CACHE)
     ap.add_argument("--jobs", type=int, default=os.cpu_count())
     ap.add_argument("--no-zip", action="store_true")
@@ -398,10 +408,13 @@ def main():
     args = ap.parse_args()
     args.otb = os.path.abspath(args.otb)
     args.otb_commit = git_head(args.otb)
+    pinned = epub2cpb.load_languages()["otb"].get("commit")
+    if pinned and args.otb_commit and args.otb_commit != pinned:
+        print(f"warning: OTB checkout is at {args.otb_commit}, languages.json pins {pinned}", file=sys.stderr)
     args.version = crosspoint_version()
     cfg = epub2cpb.load_languages()
     entries = [e for e in cfg["languages"] if not e.get("builtin")]
-    if args.lang:
+    if args.lang is not None:
         unknown = set(args.lang) - {e["code"] for e in cfg["languages"]}
         if unknown:
             raise SystemExit(f"unknown language codes: {sorted(unknown)}")
