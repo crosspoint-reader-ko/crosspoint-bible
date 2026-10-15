@@ -18,7 +18,7 @@
  },
  "fonts": {
   "KoPubBatangMedium": {
-   "path": "lib/EpdFont/builtinFonts/source/KoPub-Batang/KoPub Batang_Pro Medium.otf",
+   "url": "https://raw.githubusercontent.com/fonts-archive/KoPubBatang/7ef37ed4015cf0f638952e3d9937e4192f7cea97/KoPubBatang-Medium.otf",
    "name": "KoPub Batang_Pro Medium.otf",
    "sha256": "32ae579064528dcc9d982bc2286defdd292ffe4c3a6e510ac691b326c3262e5b",
    "license": "KoPub font terms (Korean Publishers Society)",
@@ -27,7 +27,8 @@
      "name": "KoPub-NOTICE.txt",
      "text": "KoPub Batang Pro Medium (KoPub바탕체_Pro Medium), version 2.1.1\nCopyright (c) 2018 한국출판인회의 (Korean Publishers Society). All rights reserved.\nFont designed by FONTRIX Inc. KoPub is a registered trademark of Korea Publisher Society.\n\nThe KoPub fonts are distributed free of charge by 한국출판인회의 (https://www.kopus.org).\nThis bundle carries bitmap renderings of a subset of the font, used under the KoPub font terms\npublished by 한국출판인회의. See their site for the full terms.\n"
     }
-   ]
+   ],
+   "_source_note": "The KoPub site distributes the fonts in an installer; this is the fonts-archive mirror pinned by commit and sha256 (byte-identical to KoPub Batang Pro Medium 2.1.1)."
   },
   "RIDIBatang": {
    "url": "https://raw.githubusercontent.com/fonts-archive/RIDIBatang/f1628238e56fd41c12451dfc7d975527b61ebfc7/RIDIBatang.otf",
