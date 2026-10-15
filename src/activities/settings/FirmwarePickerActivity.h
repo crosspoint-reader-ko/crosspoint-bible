@@ -5,29 +5,16 @@
 #include <vector>
 
 #include "activities/UiListActivity.h"
-#include "components/OptionPopup.h"
 
-class FileBrowserActivity final : public UiListActivity {
- public:
-  // Books = standard reader browser; PickFirmware = filter to .bin only and return path via ActivityResult.
-  enum class Mode { Books, PickFirmware };
-
+// SD card browser that lists folders and .bin files and returns the chosen firmware
+// path through FilePathResult (cancelled when Back leaves the root). Used by the SD
+// firmware update, which is the only update path in CrossPoint Bible.
+class FirmwarePickerActivity final : public UiListActivity {
  private:
-  // File actions
-  bool removeDirFile(const std::string& fullPath);
-  void showEntryActions();
-  void startRename();
-  void renameSelectedFile(const std::string& oldPath, const std::string& oldEntry, const std::string& newStem,
-                          const std::string& extension);
-  void deleteSelected();
-
-  Mode mode = Mode::Books;
-
   // Files state
   std::string basepath = "/";
   std::vector<std::string> files;
   std::unique_ptr<char[]> fileNameBuffer;
-  OptionPopup optionPopup;
 
   // Pull-based rows: the SDK list resolves each drawn row on demand through
   // provideRow() (fui::ListProps::rowProvider), so the only per-file
@@ -52,13 +39,10 @@ class FileBrowserActivity final : public UiListActivity {
   int listCount() const override { return static_cast<int>(files.size()); }
   void buildScreen(UiScreen& screen) override;
   void activateIndex(int index) override;
-  void onRowLongPress(int index) override;
-  // Long-press BACK goes to root; short Back goes up a directory (home/cancel at
-  // root), and Confirm activates on release while a hold opens file actions.
-  bool handleCustomInput() override;
+  // Short Back goes up a directory (cancel at root); Confirm activates on release.
   bool handleButtons() override;
-  // Header shows the current folder name (battery indicator via GUI.drawHeader);
-  // footer labels depend on path depth and picker mode.
+  // Header shows the picker title (battery indicator via GUI.drawHeader);
+  // footer labels depend on path depth and the selected entry.
   void drawChrome() override;
   void drawFooter() override;
   void activateSelected();
@@ -68,9 +52,8 @@ class FileBrowserActivity final : public UiListActivity {
   size_t findEntry(const std::string& name) const;
 
  public:
-  explicit FileBrowserActivity(GfxRenderer& renderer, MappedInputManager& mappedInput, std::string initialPath = "/",
-                               Mode mode = Mode::Books);
+  explicit FirmwarePickerActivity(GfxRenderer& renderer, MappedInputManager& mappedInput,
+                                  std::string initialPath = "/");
   void onEnter() override;
   void onExit() override;
-  void render(RenderLock&& lock) override;
 };

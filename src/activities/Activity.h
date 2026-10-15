@@ -11,7 +11,6 @@
 #include "GfxRenderer.h"
 #include "MappedInputManager.h"
 #include "RenderLock.h"
-#include "util/ScreenshotInfo.h"
 
 class Activity {
   friend class ActivityManager;
@@ -51,7 +50,6 @@ class Activity {
   virtual bool handleForcedRefresh() { return false; }
   virtual bool isHomeActivity() const { return false; }
   virtual bool handleHomeGesture() { return false; }
-  virtual ScreenshotInfo getScreenshotInfo() const { return {}; }
 
   // Start a new activity without destroying the current one
   // Note: requestUpdate() will be invoked automatically once resultHandler finishes
@@ -66,5 +64,4 @@ class Activity {
   // Convenience method to facilitate API transition to ActivityManager
   // TODO: remove this in near future
   static void onGoHome(HomeMenuItem item = HomeMenuItem::NONE);
-  static void onSelectBook(const std::string& path);
 };

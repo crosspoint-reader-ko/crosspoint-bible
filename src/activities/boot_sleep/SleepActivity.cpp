@@ -1,8 +1,6 @@
 #include "SleepActivity.h"
 
 #include <BitmapHelpers.h>
-#include <Epub.h>
-#include <Epub/converters/PngToFramebufferConverter.h>
 #include <FontCacheManager.h>
 #include <FsHelpers.h>
 #include <GfxRenderer.h>
@@ -12,9 +10,6 @@
 #include <I18n.h>
 #include <Logging.h>
 #include <Memory.h>
-#include <PNGdec.h>
-#include <Txt.h>
-#include <Xtc.h>
 
 #include <algorithm>
 #include <cmath>
@@ -42,7 +37,6 @@ HalDisplay::GrayscaleMode sleepGrayscaleMode(const GfxRenderer& renderer) {
 
 // Kept separate from /sleep.bmp and /.sleep so alpha-overlay art does not mix with full-screen wallpapers.
 constexpr char TRANSPARENT_SLEEP_ROOT_BMP[] = "/sleep-overlay.bmp";
-constexpr char TRANSPARENT_SLEEP_ROOT_PNG[] = "/sleep-overlay.png";
 constexpr char TRANSPARENT_SLEEP_DIR[] = "/.sleep-overlay";
 constexpr char TRANSPARENT_SLEEP_LEGACY_DIR[] = "/sleep-overlay";
 constexpr size_t MAX_SLEEP_FILE_NAME_LEN = 256;
@@ -82,50 +76,6 @@ uint32_t readLE32(HalFile& file) {
   const auto b3 = static_cast<uint8_t>(c3 < 0 ? 0 : c3);
   return static_cast<uint32_t>(b0) | (static_cast<uint32_t>(b1) << 8) | (static_cast<uint32_t>(b2) << 16) |
          (static_cast<uint32_t>(b3) << 24);
-}
-
-uint32_t readBE32(HalFile& file) {
-  const int c0 = file.read();
-  const int c1 = file.read();
-  const int c2 = file.read();
-  const int c3 = file.read();
-  if (c0 < 0 || c1 < 0 || c2 < 0 || c3 < 0) return 0;
-  return (static_cast<uint32_t>(c0) << 24) | (static_cast<uint32_t>(c1) << 16) | (static_cast<uint32_t>(c2) << 8) |
-         static_cast<uint32_t>(c3);
-}
-
-bool isValidPngHeader(HalFile& file) {
-  static constexpr uint8_t PNG_SIGNATURE[8] = {0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A};
-  static constexpr uint32_t MAX_SOURCE_PIXELS = 2048u * 1536u;
-  uint8_t signature[8];
-  if (!file.seek(0) || file.read(signature, sizeof(signature)) != static_cast<int>(sizeof(signature)) ||
-      !std::equal(std::begin(signature), std::end(signature), std::begin(PNG_SIGNATURE))) {
-    return false;
-  }
-
-  const uint32_t ihdrLength = readBE32(file);
-  char chunkType[4];
-  if (file.read(reinterpret_cast<uint8_t*>(chunkType), sizeof(chunkType)) != static_cast<int>(sizeof(chunkType)) ||
-      ihdrLength != 13 || !std::equal(std::begin(chunkType), std::end(chunkType), "IHDR")) {
-    return false;
-  }
-
-  const uint32_t width = readBE32(file);
-  const uint32_t height = readBE32(file);
-  const int bitDepth = file.read();
-  const int colorType = file.read();
-  const int compression = file.read();
-  const int filter = file.read();
-  const int interlace = file.read();
-
-  const bool supportedBitDepth =
-      bitDepth == 8 || ((colorType == PNG_PIXEL_GRAYSCALE || colorType == PNG_PIXEL_INDEXED) &&
-                        (bitDepth == 1 || bitDepth == 2 || bitDepth == 4));
-  const bool supportedColorType = colorType == PNG_PIXEL_GRAYSCALE || colorType == PNG_PIXEL_TRUECOLOR ||
-                                  colorType == PNG_PIXEL_INDEXED || colorType == PNG_PIXEL_GRAY_ALPHA ||
-                                  colorType == PNG_PIXEL_TRUECOLOR_ALPHA;
-  return width > 0 && height > 0 && width <= 2048 && height <= 3072 && width * height <= MAX_SOURCE_PIXELS &&
-         supportedBitDepth && supportedColorType && compression == 0 && filter == 0 && interlace == 0;
 }
 
 BitmapPlacement calculateBitmapPlacement(const int bitmapWidth, const int bitmapHeight, const GfxRenderer& renderer) {
@@ -420,19 +370,14 @@ bool findNextValidSleepImage(HalFile& dir, const SleepRecentKind recentKind, cha
     if (name[0] == '\0' || name[0] == '.') continue;
     if (selectionDir != nullptr && !isSelectedSleepImage(selectionDir, name)) continue;
 
-    const bool isBmp = FsHelpers::hasBmpExtension(name);
-    const bool isPng = recentKind == SleepRecentKind::Overlay && FsHelpers::hasPngExtension(std::string_view{name});
-    if (!isBmp && !isPng) {
+    // BMP only: CrossPoint Bible carries no PNG/JPEG decoder.
+    if (!FsHelpers::hasBmpExtension(name)) {
       LOG_DBG("SLP", "Skipping unsupported sleep image: %s", name);
       continue;
     }
 
-    const bool isValid = isBmp ? [&dirFile]() {
-      Bitmap bitmap(dirFile);
-      return bitmap.parseHeaders() == BmpReaderError::Ok;
-    }()
-                               : isValidPngHeader(dirFile);
-    if (!isValid) {
+    Bitmap bitmap(dirFile);
+    if (bitmap.parseHeaders() != BmpReaderError::Ok) {
       LOG_DBG("SLP", "Skipping invalid sleep image: %s", name);
       continue;
     }
@@ -572,14 +517,9 @@ void SleepActivity::onEnter() {
       return renderBlankSleepScreen();
     case (CrossPointSettings::SLEEP_SCREEN_MODE::CUSTOM):
       return renderCustomSleepScreen();
-    case (CrossPointSettings::SLEEP_SCREEN_MODE::COVER):
-      return renderCoverSleepScreen();
     case (CrossPointSettings::SLEEP_SCREEN_MODE::COVER_CUSTOM):
-      if (APP_STATE.lastSleepFromReader) {
-        return renderCoverSleepScreen();
-      } else {
-        return renderCustomSleepScreen();
-      }
+      // Book covers are gone with the EPUB/XTC/TXT readers; Cover + Custom keeps its custom images.
+      return renderCustomSleepScreen();
     default:
       return renderDefaultSleepScreen();
   }
@@ -752,67 +692,13 @@ bool SleepActivity::renderSleepOverlayFile(HalFile& file, const char* pathForLog
   return true;
 }
 
-bool SleepActivity::renderTransparentOverlayPng(const std::string& path) const {
-  ImageDimensions dimensions;
-  if (!PngToFramebufferConverter::getDimensionsStatic(path, dimensions)) return false;
-
-  const auto placement = calculateBitmapPlacement(dimensions.width, dimensions.height, renderer);
-  RenderConfig config;
-  config.x = placement.x;
-  config.y = placement.y;
-  config.maxWidth = renderer.getScreenWidth();
-  config.maxHeight = renderer.getScreenHeight();
-  config.useDithering = false;
-  config.sourceCropX = placement.cropX;
-  config.sourceCropY = placement.cropY;
-  config.useExactDimensions = placement.cropX > 0.0f || placement.cropY > 0.0f;
-  config.preserveAlpha = true;
-
-  PngToFramebufferConverter converter;
-  LOG_DBG("SLP", "Rendering transparent PNG overlay: %s (%dx%d)", path.c_str(), dimensions.width, dimensions.height);
-
-  if (!converter.decodeToFramebuffer(path, renderer, config)) return false;
-  const bool absolute = renderer.grayscaleCapabilities(sleepGrayscaleMode(renderer)).supported();
-  if (absolute) {
-    if (!renderer.displayGrayscaleBase(sleepGrayscaleMode(renderer))) return false;
-  } else {
-    renderer.displayGrayscaleBase(HalDisplay::HALF_REFRESH);
-  }
-
-  // Absolute planes retain B/W background bits; each visible overlay pixel is rewritten in both passes.
-  if (!absolute) renderer.clearScreen(0x00);
-  renderer.setRenderMode(GfxRenderer::GRAYSCALE_LSB);
-  if (!converter.decodeToFramebuffer(path, renderer, config)) {
-    renderer.setRenderMode(GfxRenderer::BW);
-    return true;
-  }
-  renderer.copyGrayscaleLsbBuffers();
-
-  if (!absolute) renderer.clearScreen(0x00);
-  renderer.setRenderMode(GfxRenderer::GRAYSCALE_MSB);
-  if (!converter.decodeToFramebuffer(path, renderer, config)) {
-    renderer.setRenderMode(GfxRenderer::BW);
-    return true;
-  }
-  renderer.copyGrayscaleMsbBuffers();
-
-  renderer.displayGrayBuffer();
-  renderer.setRenderMode(GfxRenderer::BW);
-  return true;
-}
-
 bool SleepActivity::renderSleepOverlayPath(const std::string& path) const {
-  if (FsHelpers::hasPngExtension(path)) {
-    return Storage.exists(path.c_str()) && renderTransparentOverlayPng(path);
-  }
-
   HalFile file;
   return Storage.openFileForRead("SLP", path, file) && renderSleepOverlayFile(file, path.c_str());
 }
 
 void SleepActivity::renderTransparentCustomSleepScreen() const {
   if (renderSleepOverlayPath(TRANSPARENT_SLEEP_ROOT_BMP)) return;
-  if (renderSleepOverlayPath(TRANSPARENT_SLEEP_ROOT_PNG)) return;
 
   std::string selectedPath;
   if (!selectRandomSleepFile(TRANSPARENT_SLEEP_DIR, SleepRecentKind::Overlay, selectedPath)) {
@@ -823,112 +709,6 @@ void SleepActivity::renderTransparentCustomSleepScreen() const {
 
   LOG_ERR("SLP", "No valid transparent sleep overlay found");
   renderDefaultSleepScreen();
-}
-
-void SleepActivity::renderCoverSleepScreen() const {
-  void (SleepActivity::*renderNoCoverSleepScreen)() const;
-  switch (SETTINGS.sleepScreen) {
-    case (CrossPointSettings::SLEEP_SCREEN_MODE::COVER_CUSTOM):
-      renderNoCoverSleepScreen = &SleepActivity::renderCustomSleepScreen;
-      break;
-    default:
-      renderNoCoverSleepScreen = &SleepActivity::renderDefaultSleepScreen;
-      break;
-  }
-
-  if (APP_STATE.openEpubPath.empty()) {
-    return (this->*renderNoCoverSleepScreen)();
-  }
-
-  // SSD absolute images use the new thresholds; other panels retain legacy tuning.
-  const bool originalThresholds =
-      renderer.grayscaleCapabilities(sleepGrayscaleMode(renderer)).supported() &&
-      display.getController() == HalDisplay::Controller::SSD1677 &&
-      SETTINGS.sleepScreenCoverFilter == CrossPointSettings::SLEEP_SCREEN_COVER_FILTER::NO_FILTER;
-  std::string coverBmpPath;
-  bool cropped = SETTINGS.sleepScreenCoverMode == CrossPointSettings::SLEEP_SCREEN_COVER_MODE::CROP;
-
-  // Check if the current book is XTC, TXT, or EPUB
-  if (FsHelpers::hasXtcExtension(APP_STATE.openEpubPath)) {
-    // Handle XTC file
-    Xtc lastXtc(APP_STATE.openEpubPath, "/.crosspoint");
-    if (!lastXtc.load()) {
-      LOG_ERR("SLP", "Failed to load last XTC");
-      return (this->*renderNoCoverSleepScreen)();
-    }
-
-    if (!lastXtc.generateCoverBmp()) {
-      LOG_ERR("SLP", "Failed to generate XTC cover bmp");
-      return (this->*renderNoCoverSleepScreen)();
-    }
-
-    coverBmpPath = lastXtc.getCoverBmpPath();
-  } else if (FsHelpers::hasTxtExtension(APP_STATE.openEpubPath)) {
-    // Handle TXT file - looks for cover image in the same folder
-    Txt lastTxt(APP_STATE.openEpubPath, "/.crosspoint");
-    if (!lastTxt.load()) {
-      LOG_ERR("SLP", "Failed to load last TXT");
-      return (this->*renderNoCoverSleepScreen)();
-    }
-
-    if (!lastTxt.generateCoverBmp()) {
-      LOG_ERR("SLP", "No cover image found for TXT file");
-      return (this->*renderNoCoverSleepScreen)();
-    }
-
-    coverBmpPath = lastTxt.getCoverBmpPath();
-  } else if (FsHelpers::hasEpubExtension(APP_STATE.openEpubPath)) {
-    // Handle EPUB file
-    LOG_DBG("SLP", "Loading epub for cover: %s (free heap: %d)", APP_STATE.openEpubPath.c_str(), ESP.getFreeHeap());
-    Epub lastEpub(APP_STATE.openEpubPath, "/.crosspoint");
-    // Skip loading css since we only need metadata here
-    if (!lastEpub.load(true, true)) {
-      LOG_ERR("SLP", "Failed to load last epub");
-      return (this->*renderNoCoverSleepScreen)();
-    }
-    LOG_DBG("SLP", "Epub loaded, generating cover BMP (free heap: %d)", ESP.getFreeHeap());
-
-    if (!lastEpub.generateCoverBmp(cropped, originalThresholds)) {
-      LOG_ERR("SLP", "Failed to generate cover bmp");
-      return (this->*renderNoCoverSleepScreen)();
-    }
-
-    coverBmpPath = lastEpub.getCoverBmpPath(cropped, originalThresholds);
-    LOG_DBG("SLP", "Cover BMP path: %s", coverBmpPath.c_str());
-  } else {
-    return (this->*renderNoCoverSleepScreen)();
-  }
-
-  HalFile file;
-  if (Storage.openFileForRead("SLP", coverBmpPath, file)) {
-    const auto fileSize = file.size();
-    LOG_DBG("SLP", "Cover BMP file size: %lu bytes", fileSize);
-    Bitmap bitmap(file);
-    const auto parseResult = bitmap.parseHeaders();
-    if (parseResult == BmpReaderError::Ok) {
-      // Validate file isn't truncated: check actual size against header + pixel data.
-      // The prior constant `+ 70` over-estimated the 62-byte 1-bit BMP header by 8 bytes
-      // and flagged every well-formed 1-bit cover (XTC, TXT) as truncated, deleting it
-      // on every sleep cycle — broken since 1.0.0-ko.1. Use the real header offset from
-      // the parsed BMP so 1-bit (62B), 8-bit grayscale (1078B), etc. all validate.
-      const uint32_t expectedSize =
-          bitmap.getDataOffset() + static_cast<uint32_t>(bitmap.getRowBytes()) * bitmap.getHeight();
-      if (fileSize < expectedSize) {
-        LOG_DBG("SLP", "Cover BMP truncated: %lu bytes < expected %lu, deleting", fileSize, expectedSize);
-        file.close();
-        Storage.remove(coverBmpPath.c_str());
-        return (this->*renderNoCoverSleepScreen)();
-      }
-      LOG_DBG("SLP", "Rendering sleep cover: %s (%dx%d, %d bpp)", coverBmpPath.c_str(), bitmap.getWidth(),
-              bitmap.getHeight(), bitmap.getBpp());
-      renderBitmapSleepScreen(bitmap);
-      return;
-    }
-    LOG_DBG("SLP", "Cover BMP parse failed: %s, deleting", Bitmap::errorToString(parseResult));
-    Storage.remove(coverBmpPath.c_str());
-  }
-
-  return (this->*renderNoCoverSleepScreen)();
 }
 
 void SleepActivity::renderLastScreenSleepScreen() const {

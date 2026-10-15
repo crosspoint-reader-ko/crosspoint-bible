@@ -1,6 +1,5 @@
 #include <Arduino.h>
 #include <BoardConfig.h>
-#include <Epub.h>
 #include <FontCacheManager.h>
 #include <FontDecompressor.h>
 #include <GfxRenderer.h>
@@ -16,8 +15,6 @@
 #include <I18n.h>
 #include <Logging.h>
 #include <SPI.h>
-#include <SdFontFamily.h>
-#include <WiFi.h>
 #include <XteinkDetect.h>
 #include <builtinFonts/all.h>
 
@@ -25,18 +22,14 @@
 
 #include "CrossPointSettings.h"
 #include "CrossPointState.h"
-#include "FontManager.h"
-#include "KOReaderCredentialStore.h"
 #include "MappedInputManager.h"
-#include "OpdsServerStore.h"
-#include "RecentBooksStore.h"
 #include "activities/Activity.h"
 #include "activities/ActivityManager.h"
 #include "activities/settings/SdFirmwareUpdateActivity.h"
-#include "components/UITheme.h"
-#include "fontIds.h"
 #include "bible/BibleFonts.h"
 #include "bible/BibleSession.h"
+#include "components/UITheme.h"
+#include "fontIds.h"
 #include "platform/UsbSerialJtagHandoff.h"
 #include "util/ButtonNavigator.h"
 #include "util/ScreenshotUtil.h"
@@ -75,164 +68,14 @@ EpdFontFamily bible24FontFamily(&bible24RegularFont);
 EpdFont bible28RegularFont(&bible_28_regular);
 EpdFontFamily bible28FontFamily(&bible28RegularFont);
 
-// Korean fonts loading from SD card is disabled due to memory constraints
-// Font files should be in /.crosspoint/fonts/ directory
-constexpr char FONT_DIR[] = "/.crosspoint/fonts";
-
-// Helper function to safely load an SD font with comprehensive error handling
-// Returns true if loading succeeded
-bool trySdFontLoad(GfxRenderer& renderer, int fontId, const char* name, const char* regularPath,
-                   const char* boldPath = nullptr) {
-  // First check if the file exists before attempting to create SdFontFamily
-  if (!Storage.exists(regularPath)) {
-    LOG_ERR("FNT", "%s not found: %s", name, regularPath);
-    return false;
-  }
-
-  SdFontFamily* font = nullptr;
-  bool success = false;
-
-  // Create font family - use regular new since ESP32 doesn't always support nothrow
-  font = new SdFontFamily(regularPath, boldPath);
-  if (font == nullptr) {
-    LOG_ERR("FNT", "Failed to allocate memory for %s", name);
-    return false;
-  }
-
-  if (font->load()) {
-    renderer.insertSdFont(fontId, font);
-    LOG_DBG("FNT", "Loaded %s from SD", name);
-    success = true;
-  } else {
-    LOG_ERR("FNT", "Failed to load %s", name);
-    delete font;
-  }
-
-  return success;
-}
-
-// Load custom reader font from SD card if configured
-// Returns true if custom font was loaded successfully
-bool loadCustomReaderFont(GfxRenderer& gfxRenderer) {
-  if (!SETTINGS.hasCustomFont()) {
-    LOG_DBG("FNT", "No custom font configured, using default KoPub Batang");
-    return false;
-  }
-
-  const char* fontPath = SETTINGS.customFontPath;
-  LOG_DBG("FNT", "Loading custom font: %s", fontPath);
-
-  if (!Storage.exists(fontPath)) {
-    LOG_ERR("FNT", "Custom font file not found: %s", fontPath);
-    // Clear invalid font path
-    SETTINGS.customFontPath[0] = '\0';
-    SETTINGS.saveToFile();
-    return false;
-  }
-
-  // Try to load the custom font
-  if (trySdFontLoad(gfxRenderer, CUSTOM_FONT_ID, "CustomReaderFont", fontPath)) {
-    LOG_DBG("FNT", "Custom reader font loaded successfully");
-    return true;
-  }
-
-  LOG_ERR("FNT", "Failed to load custom font, clearing setting to use default");
-  // Clear invalid font path so getReaderFontId() returns default font
-  SETTINGS.customFontPath[0] = '\0';
-  SETTINGS.saveToFile();
-  return false;
-}
-
-// Reload custom reader font - removes old font and loads new one
-// Call this when font settings change to apply immediately without reboot
-bool reloadCustomReaderFont() {
-  LOG_DBG("FNT", "Reloading custom reader font...");
-
-  // Remove existing custom font if any
-  if (renderer.hasFont(CUSTOM_FONT_ID)) {
-    renderer.removeFont(CUSTOM_FONT_ID);
-    LOG_DBG("FNT", "Removed previous custom font");
-  }
-
-  // Load new custom font if configured
-  return loadCustomReaderFont(renderer);
-}
-
-// Load the UI system font from SD card (if configured) and make it the primary UI font,
-// with Pretendard kept as its glyph-level fallback. The whole UI (all UI_FONT_ID slots)
-// renders with the SD font; any codepoint the SD font lacks falls back to Pretendard.
-// When no system font is configured (or the user clears it), the UI uses Pretendard only.
-// Returns true if a system font is now active.
-bool loadSystemFont(GfxRenderer& gfxRenderer) {
-  if (!SETTINGS.hasSystemFont()) {
-    LOG_DBG("FNT", "No system font configured, UI uses Pretendard only");
-    return false;
-  }
-
-  const char* fontPath = SETTINGS.systemFontPath;
-  LOG_DBG("FNT", "Loading system font: %s", fontPath);
-
-  if (!Storage.exists(fontPath)) {
-    LOG_ERR("FNT", "System font file not found: %s", fontPath);
-    SETTINGS.systemFontPath[0] = '\0';
-    SETTINGS.saveToFile();
-    return false;
-  }
-
-  if (trySdFontLoad(gfxRenderer, SYSTEM_FONT_ID, "SystemFont", fontPath)) {
-    // SD system font becomes the primary UI font; Pretendard backs it as the glyph-level
-    // fallback for codepoints the SD font lacks. The redirect points every UI_FONT_ID
-    // request (all UI slots alias it) at the SD font slot, so the whole UI switches over.
-    gfxRenderer.setGlyphFallback(SYSTEM_FONT_ID, UI_FONT_ID);
-    gfxRenderer.setFontRedirect(UI_FONT_ID, SYSTEM_FONT_ID);
-    LOG_DBG("FNT", "System font loaded as primary UI font (Pretendard fallback)");
-    return true;
-  }
-
-  LOG_ERR("FNT", "Failed to load system font, clearing setting");
-  SETTINGS.systemFontPath[0] = '\0';
-  SETTINGS.saveToFile();
-  return false;
-}
-
-// Reload UI system font - removes old SD system font and loads the configured one.
-// Call this when the system-font setting changes to apply immediately without reboot.
-// If the user cleared the setting, the UI reverts to Pretendard.
-bool reloadSystemFont() {
-  LOG_DBG("FNT", "Reloading system font...");
-
-  // Drop the redirect first so UI_FONT_ID stops resolving to a font we are about to free,
-  // then detach the SD font's fallback wiring before removing it.
-  renderer.clearFontRedirect();
-  renderer.clearGlyphFallback(SYSTEM_FONT_ID);
-
-  if (renderer.hasFont(SYSTEM_FONT_ID)) {
-    renderer.removeFont(SYSTEM_FONT_ID);
-    LOG_DBG("FNT", "Removed previous system font");
-  }
-
-  return loadSystemFont(renderer);
-}
-
-// Get reference to global renderer (for font operations from other modules)
-GfxRenderer& getGlobalRenderer() { return renderer; }
-
-// SD font loading is disabled - Korean fonts need to be embedded in flash
-// due to ESP32-C3 memory constraints. SD card loading causes crashes.
-void loadSdFonts(GfxRenderer& /*renderer*/) {
-  // SD font loading disabled - use flash-embedded fonts instead
-  LOG_DBG("FNT", "SD font loading disabled (use flash fonts)");
-}
-
 // Definitions for SilentRestart.h. RTC_NOINIT survives ESP.restart() but not power loss.
 RTC_NOINIT_ATTR uint32_t silentRebootMagic;
 RTC_NOINIT_ATTR uint32_t silentRebootTarget;
 RTC_NOINIT_ATTR uint32_t silentRebootPayload;
 constexpr uint32_t SILENT_REBOOT_MAGIC = 0xC1EAB007;
+// The reader/settings targets (1, 2) belonged to the removed book readers and WiFi
+// rows; the only restart left (USB Drive's storage handoff) lands on home.
 constexpr uint32_t SILENT_REBOOT_TARGET_HOME = 0;
-constexpr uint32_t SILENT_REBOOT_TARGET_READER = 1;
-constexpr uint32_t SILENT_REBOOT_TARGET_SETTINGS = 2;
-constexpr uint32_t SILENT_REBOOT_TARGET_MAX = SILENT_REBOOT_TARGET_SETTINGS;
 constexpr uint32_t SILENT_REBOOT_LIGHT_ON = 1U << 0;
 
 // How the device is coming back to life, resolved once at boot. Both resume
@@ -240,15 +83,14 @@ constexpr uint32_t SILENT_REBOOT_LIGHT_ON = 1U << 0;
 // plain boot shows the splash. See setup() for the resolution.
 enum class BootResume : uint8_t {
   Splash,          // cold boot, flash, panic, or plain reboot
-  Silent,          // heap-defrag ESP.restart() (RTC flag; lost on power loss)
+  Silent,          // storage-handoff ESP.restart() (RTC flag; lost on power loss)
   SplashlessWake,  // wake from deep sleep with the splash suppressed by the SD flag
 };
 
 // Latched true once enterDeepSleep() commits to sleeping, before it tears down
-// the current activity. WiFi activities call silentRestart() in onExit() to
-// clear heap fragmentation on the way out, but deep sleep is a full chip reset
-// on wake and already clears the heap, so rebooting here would just power the
-// device back up against the user's sleep gesture. Never cleared:
+// the current activity. Deep sleep is a full chip reset on wake, so a silent
+// restart or storage-handoff reboot requested on the way out would just power
+// the device back up against the user's sleep gesture. Never cleared:
 // startDeepSleep() does not return, so a set latch only ends at the wakeup reset.
 static bool deepSleepInProgress = false;
 
@@ -263,28 +105,6 @@ static void armSilentReboot(const uint32_t target) {
   silentRebootPayload = Frontlight.isOn() ? SILENT_REBOOT_LIGHT_ON : 0;
   silentRebootMagic = SILENT_REBOOT_MAGIC;
 }
-
-// Returns instead of rebooting when sleep supersedes the reboot; callers keep
-// running in that case.
-static void silentRestartTo(const uint32_t target, const char* targetName) {
-  if (deepSleepInProgress) return;  // sleeping supersedes the heap-defrag reboot
-  armSilentReboot(target);
-  LOG_DBG("MAIN", "Silent restart (target=%s)", targetName);
-  // E-ink retains the previous frame until the target's first paint lands
-  // (~2-3s). Without an overlay, users don't see the reboot and fire input
-  // through to the new activity. On Home, Select on the default
-  // selectorIndex=0 opens the most-recent book, looking like a trampoline back
-  // to the reader they just exited.
-  GUI.drawPopup(renderer, tr(STR_LOADING_POPUP));
-  delay(50);
-  ESP.restart();
-}
-
-void silentRestart() { silentRestartTo(SILENT_REBOOT_TARGET_HOME, "home"); }
-
-void silentRestartToReader() { silentRestartTo(SILENT_REBOOT_TARGET_READER, "reader"); }
-
-void silentRestartToSettings() { silentRestartTo(SILENT_REBOOT_TARGET_SETTINGS, "settings"); }
 
 void restartToHomeAfterStorageHandoff() {
   if (deepSleepInProgress) return;  // sleeping supersedes the storage handoff reboot
@@ -364,8 +184,7 @@ void enterDeepSleep(bool fromTimeout = false) {
 
   APP_STATE.saveToFile();
 
-  // Commit to sleeping before goToSleep() runs the outgoing activity's onExit():
-  // a WiFi activity would otherwise silentRestart() here and reboot instead.
+  // Commit to sleeping before goToSleep() runs the outgoing activity's onExit().
   deepSleepInProgress = true;
   activityManager.goToSleep(fromTimeout);
 
@@ -374,13 +193,6 @@ void enterDeepSleep(bool fromTimeout = false) {
   } else if (Storage.exists(SLEEP_FRAME_FILE)) {
     // A stale Quick Resume frame must not replace the selected sleep screen during wake.
     Storage.remove(SLEEP_FRAME_FILE);
-  }
-
-  // Tear down WiFi so the modem power domain isn't held alive across deep sleep.
-  // Wake from deep sleep is effectively a chip reset, so no state needs to survive.
-  if (WiFi.getMode() != WIFI_MODE_NULL) {
-    WiFi.disconnect(true);
-    WiFi.mode(WIFI_OFF);
   }
 
   halTiltSensor.deepSleep();
@@ -416,8 +228,6 @@ void setupDisplayAndFonts(bool seamless = false) {
   }
   fontCacheManager.setFontDecompressor(&fontDecompressor);
   renderer.setFontCacheManager(&fontCacheManager);
-  // Korean build: upstream NotoSerif/NotoSans/Ubuntu built-ins are not loaded.
-  // KoPub Batang is the default reader font; Pretendard drives all UI sizes.
 
   // UI font (Pretendard 10pt) - used for all UI sizes in Korean version
   renderer.insertFont(UI_FONT_ID, &uiFontFamily);
@@ -432,18 +242,8 @@ void setupDisplayAndFonts(bool seamless = false) {
   renderer.insertFont(BIBLE_24_FONT_ID, &bible24FontFamily);
   renderer.insertFont(BIBLE_28_FONT_ID, &bible28FontFamily);
 
-  // Try to load custom reader font from SD card
-  loadCustomReaderFont(renderer);
-
   // Set fallback font to Pretendard UI
   renderer.setFallbackFont(UI_FONT_ID);
-
-  // Load the optional UI system font from SD and wire it as the UI glyph-level fallback
-  // (lets Hanja/Kana book titles render even though Pretendard is Hangul/Latin only).
-  loadSystemFont(renderer);
-
-  // SD card fonts loading disabled due to memory constraints
-  loadSdFonts(renderer);
 
   LOG_DBG("MAIN", "Fonts setup complete");
 }
@@ -469,10 +269,8 @@ void setup() {
   const bool rebootedFromPanic = HalSystem::isRebootFromPanic();
 
   // Read-and-clear so a panic later in setup() doesn't loop into silent reboot.
-  // Bound the target range too — RTC_NOINIT memory is uninitialized on cold boot.
+  // Every silent reboot lands on home, so the target is not consulted.
   const bool isSilentReboot = (silentRebootMagic == SILENT_REBOOT_MAGIC);
-  const uint32_t snapshotTarget =
-      (isSilentReboot && silentRebootTarget <= SILENT_REBOOT_TARGET_MAX) ? silentRebootTarget : 0;
   const bool silentRebootLightOn = isSilentReboot && (silentRebootPayload & SILENT_REBOOT_LIGHT_ON) != 0;
   silentRebootMagic = 0;
   silentRebootTarget = 0;
@@ -513,7 +311,6 @@ void setup() {
 #endif
 
   // SD Card Initialization
-  // We need 6 open files concurrently when parsing a new chapter
   if (!Storage.begin()) {
     LOG_ERR("MAIN", "SD card initialization failed");
     setupDisplayAndFonts(isSilentReboot);
@@ -532,22 +329,12 @@ void setup() {
             (BoardConfig::isX4Pro() || BoardConfig::isX4Classic()) ? "DOWN" : "UP");
   }
 
-  // Touch boards default the reader menu to the toolbar overlay instead of the
-  // full-screen list. Seeded before the load: fromJson() falls back to the
-  // in-memory value only when the file carries no readerMenuStyle key, so a
-  // user's saved choice (either style) still wins.
-  if (gpio.hasTouch()) {
-    SETTINGS.readerMenuStyle = CrossPointSettings::READER_MENU_TOOLBAR;
-  }
   SETTINGS.loadFromFile();
   // Push the saved timezone's POSIX rule into the clock (migrating the legacy
   // UTC-offset setting on first boot after the update).
   timezones::applyToClock();
-  RECENT_BOOKS.loadFromFile();
   BIBLE.loadState();
   I18N.setLanguage(static_cast<Language>(SETTINGS.language));
-  KOREADER_STORE.loadFromFile();
-  OPDS_STORE.loadFromFile();
   UITheme::getInstance().reload();
   ButtonNavigator::setMappedInputManager(mappedInputManager);
 
@@ -604,7 +391,6 @@ void setup() {
   const BootResume resume = isSilentReboot         ? BootResume::Silent
                             : isPersistedSleepWake ? BootResume::SplashlessWake
                                                    : BootResume::Splash;
-  bool allowFastInitialReaderRefresh = false;
   bool needsWakeRefresh = false;
 
   setupDisplayAndFonts(resume != BootResume::Splash);
@@ -625,7 +411,6 @@ void setup() {
           // begin() clears the X3 controller RAM, so restore the saved frame as
           // the baseline for the first reader paint without refreshing the panel.
           renderer.cleanupGrayscaleWithFrameBuffer();
-          allowFastInitialReaderRefresh = true;
         }
       } else {
         // Clean the retained sleep image as part of the first Home paint.
@@ -647,37 +432,16 @@ void setup() {
   } else if (rebootedFromPanic) {
     // If we rebooted from a panic, go to crash report screen to show the panic info
     activityManager.goToCrashReport();
-  } else if (resume == BootResume::Silent && snapshotTarget == SILENT_REBOOT_TARGET_READER &&
-             !APP_STATE.openEpubPath.empty()) {
-    activityManager.goToReader(APP_STATE.openEpubPath);
-  } else if (resume == BootResume::Silent && snapshotTarget == SILENT_REBOOT_TARGET_SETTINGS) {
-    // Back out of the WiFi rows and the user is where they left off, not on Home.
-    activityManager.goToSettings();
-  } else if (resume == BootResume::Silent) {
-    // target == home (or reader with no open book): land on home — don't fall
-    // through to the sleep-wake "resume reader" logic, which fires on stale
-    // openEpubPath + lastSleepFromReader from a prior session.
-    activityManager.goHome();
-  } else if (APP_STATE.openEpubPath.empty() || !APP_STATE.lastSleepFromReader ||
-             mappedInputManager.isPressed(MappedInputManager::Button::Back) || APP_STATE.readerActivityLoadCount > 0) {
-    // Boot to home screen if no book is open, last sleep was not from reader, back button is held, or reader activity
-    // crashed (indicated by readerActivityLoadCount > 0)
-    activityManager.goHome(HomeMenuItem::NONE, needsWakeRefresh);
   } else {
-    // Clear app state to avoid getting into a boot loop if the epub doesn't load
-    const auto path = APP_STATE.openEpubPath;
-    APP_STATE.openEpubPath = "";
-    APP_STATE.readerActivityLoadCount++;
-    APP_STATE.saveToFile();
-    activityManager.goToReader(path, allowFastInitialReaderRefresh);
+    // Home is the Bible reader at its saved position (/.crosspoint/bible.bin).
+    activityManager.goHome(HomeMenuItem::NONE, needsWakeRefresh);
   }
 
   if (resume == BootResume::Silent) {
     // Block until the first paint physically completes. refreshDisplay()
     // waits on the panel BUSY pin so when this returns the user can see the
     // new activity. Without the wait, an edge captured by gpio.update()
-    // during boot dispatches against an invisible Home and the default
-    // selectorIndex=0 opens the most-recent book.
+    // during boot dispatches against an invisible screen.
     activityManager.requestUpdateAndWait();
     // Absorb any button held at this point into currentState as a non-edge:
     // two gpio.update() calls separated by > InputManager's 5ms debounce

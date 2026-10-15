@@ -12,12 +12,12 @@
 
 #include "GfxRenderer.h"
 #include "MappedInputManager.h"
-#include "util/ScreenshotInfo.h"
 
 class Activity;    // forward declaration
 class RenderLock;  // forward declaration
 
-enum class HomeMenuItem { NONE, FILE_BROWSER, LIBRARY, OPDS_BROWSER, FILE_TRANSFER, SETTINGS_MENU };
+// Kept for call-site compatibility: CrossPoint Bible has a single home (the Bible reader).
+enum class HomeMenuItem { NONE };
 
 /**
  * ActivityManager
@@ -26,8 +26,8 @@ enum class HomeMenuItem { NONE, FILE_BROWSER, LIBRARY, OPDS_BROWSER, FILE_TRANSF
  * manager is responsible for launching activities, and ensuring that only one activity is active at a time.
  *
  * It also provides a stack mechanism to allow activities to launch sub-activities and get back the results when the
- * sub-activity is done. For example, the WebServer activity can launch a WifiSelect activity to let the user choose a
- * wifi network, and get back the selected network when the user is done.
+ * sub-activity is done. For example, the Bible reader launches the navigator and gets back the chosen
+ * book/chapter/verse when the user is done.
  *
  * Main differences from Android's ActivityManager:
  * - No onPause/onResume, since we don't have a concept of background activities
@@ -81,13 +81,8 @@ class ActivityManager {
   void replaceActivity(std::unique_ptr<Activity>&& newActivity);
 
   // goTo... functions are convenient wrapper for replaceActivity()
-  void goToFileTransfer();
   void goToUsbDrive();
   void goToSettings();
-  void goToFileBrowser(std::string path = {});
-  void goToLibrary();
-  void goToBrowser();
-  void goToReader(std::string path, bool allowFastInitialRefresh = false);
   void goToSleep(bool fromTimeout = false);
   void goToBoot();
   void goToFullScreenMessage(std::string message, EpdFontFamily::Style style = EpdFontFamily::REGULAR);
@@ -106,7 +101,6 @@ class ActivityManager {
   bool isReaderActivity() const;
   bool handleForcedRefresh();
   bool skipLoopDelay() const;
-  ScreenshotInfo getScreenshotInfo() const;
 
   // If immediate is true, the update will be triggered immediately.
   // Otherwise, it will be deferred until the end of the current loop iteration.

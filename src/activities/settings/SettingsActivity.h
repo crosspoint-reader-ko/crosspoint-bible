@@ -15,21 +15,11 @@ enum class SettingType { TOGGLE, ENUM, ACTION, VALUE, STRING };
 enum class SettingAction {
   None,
   RemapFrontButtons,
-  CustomiseStatusBar,
   ClockSettings,
-  KOReaderSync,
-  OPDSBrowser,
-  Network,
-  ClearCache,
-  CheckForUpdates,
   SdFirmwareUpdate,
+  UsbDrive,
   Language,
   SelectSleepScreens,
-  FontSelection,        // Korean: pick the EPUB reader font from SD card
-  SystemFontSelection,  // Korean: pick the UI system font from SD card
-  // DownloadFonts omitted: the upstream .cpfont download flow is not part of this build.
-  TextSettings,
-  KeyboardLayouts,
   HomeButton,
   About,
 };
@@ -59,7 +49,7 @@ struct SettingInfo {
   size_t stringOffset = 0;
   size_t stringMaxLen = 0;
 
-  // Dynamic accessors (for settings stored outside CrossPointSettings, e.g. KOReaderCredentialStore)
+  // Dynamic accessors (for settings with a custom value mapping, e.g. the sleep screen)
   std::function<uint8_t()> valueGetter;
   std::function<void(uint8_t)> valueSetter;
   std::function<std::string()> stringGetter;

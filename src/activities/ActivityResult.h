@@ -7,63 +7,12 @@
 #include <utility>
 #include <variant>
 
-struct WifiResult {
-  bool connected = false;
-  std::string ssid;
-  std::string ip;
-};
-
-struct KeyboardResult {
-  std::string text;
-};
-
 struct MenuResult {
   int action = -1;
-  uint8_t orientation = 0;
-  uint8_t pageTurnOption = 0;
-  // TXT reader uses this to communicate the long-press multi-page jump step
-  // (0 = off, otherwise an index into a fixed step table). EPUB ignores it.
-  uint8_t pageJumpOption = 0;
-};
-
-struct ChapterResult {
-  int spineIndex = 0;
-  std::string anchor;
-};
-
-struct PercentResult {
-  int percent = 0;
 };
 
 struct IntervalResult {
   uint32_t value = 0;
-};
-
-struct PageResult {
-  uint32_t page = 0;
-};
-
-struct ProgressChangeResult {
-  int spineIndex = 0;
-  int page = 0;
-  int totalPages = 0;
-  std::string xpath;
-  float percentage = 0.0f;
-  bool hasSavedProgress = false;
-  // Exact visible-codepoint offset within spineIndex, when the source (a bookmark) has one.
-  // Preferred over xpath/percentage on resolution: it is immune to re-pagination.
-  bool hasVisibleTextOffset = false;
-  uint32_t visibleTextOffset = 0;
-};
-
-enum class NetworkMode;
-
-struct NetworkModeResult {
-  NetworkMode mode;
-};
-
-struct FootnoteResult {
-  std::string href;
 };
 
 struct FilePathResult {
@@ -76,9 +25,7 @@ struct BibleRefResult {
   uint16_t verse = 1;    // 1-based
 };
 
-using ResultVariant =
-    std::variant<std::monostate, WifiResult, KeyboardResult, MenuResult, ChapterResult, PercentResult, IntervalResult,
-                 PageResult, ProgressChangeResult, NetworkModeResult, FootnoteResult, FilePathResult, BibleRefResult>;
+using ResultVariant = std::variant<std::monostate, MenuResult, IntervalResult, FilePathResult, BibleRefResult>;
 
 struct ActivityResult {
   bool isCancelled = false;

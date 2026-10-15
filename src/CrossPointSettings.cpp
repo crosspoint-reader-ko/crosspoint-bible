@@ -11,9 +11,7 @@
 #include <string>
 
 #include "I18nKeys.h"
-#include "ReaderFontSizes.h"
 #include "SettingsList.h"
-#include "fontIds.h"
 
 namespace {
 
@@ -66,7 +64,7 @@ void CrossPointSettings::toJson(JsonDocument& doc) const {
 
   for (const auto& info : getSettingsList()) {
     if (!info.key) continue;
-    // Dynamic entries (KOReader etc.) are stored in their own files — skip.
+    // Dynamic entries (the sleep screen) are saved below — skip.
     if (!info.valuePtr && !info.stringOffset) continue;
 
     if (info.stringOffset) {
@@ -83,36 +81,16 @@ void CrossPointSettings::toJson(JsonDocument& doc) const {
     }
   }
 
+  // Sleep screen -- a dynamic entry in SettingsList (its menu skips the book-cover modes).
+  doc["sleepScreen"] = sleepScreen;
   // Front button remap — managed by RemapFrontButtons sub-activity, not in SettingsList.
   doc["frontButtonBack"] = frontButtonBack;
   doc["frontButtonConfirm"] = frontButtonConfirm;
   doc["frontButtonLeft"] = frontButtonLeft;
   doc["frontButtonRight"] = frontButtonRight;
-  // Font family and size — both use dynamic getter/setters in SettingsList (the
-  // option lists depend on the SD font registry), so the generic loop skips them.
-  doc["fontFamily"] = fontFamily;
-  doc["fontSize"] = fontPointSize;
-  // SD card font family name — not in SettingsList, save manually
-  if (sdFontFamilyName[0] != '\0') {
-    doc["sdFontFamilyName"] = sdFontFamilyName;
-  }
-  // Dictionary folder name — uses dynamic getter/setter in SettingsList, save manually
-  if (dictionaryName[0] != '\0') {
-    doc["dictionaryName"] = dictionaryName;
-  }
-  // Korean SD .epdfont selections — managed by FontSelectionActivity, not in SettingsList.
-  doc["customFontPath"] = customFontPath;
-  doc["systemFontPath"] = systemFontPath;
-
   // Language -- managed by LanguageSelectActivity, not in SettingsList.
   // Stored as ISO code string ("EN", "DE", ...) for stability across enum reorders.
   doc["language"] = (language < getLanguageCount()) ? LANGUAGE_CODES[language] : "EN";
-
-  // A uint16_t mask, so it does not fit the uint8_t generic loop. Omitted while
-  // unconfigured, so the default keeps following the UI language.
-  if (keyboardLayouts != 0) {
-    doc["keyboardLayouts"] = keyboardLayouts;
-  }
 }
 
 bool CrossPointSettings::fromJson(JsonVariantConst doc) {
@@ -123,7 +101,7 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
 
   for (const auto& info : getSettingsList()) {
     if (!info.key) continue;
-    // Dynamic entries (KOReader etc.) are stored in their own files — skip.
+    // Dynamic entries (the sleep screen) are loaded below — skip.
     if (!info.valuePtr && !info.stringOffset) continue;
 
     if (info.stringOffset) {
@@ -182,20 +160,17 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
     }
   }
 
-  // Older files stored one combined touch mode under "touchReaderControls":
-  // 0=off, 1=tap, 2=swipe, 3=inverted tap. Split it into the master toggle
-  // plus the per-direction gesture pair (the generic loop above already folded
-  // out-of-range toggle values back to the On default).
-  if (doc["pageTurnGesture"].isNull() && doc["previousPageGesture"].isNull() &&
-      doc["touchReaderControls"].is<uint8_t>()) {
-    const uint8_t mode = doc["touchReaderControls"].as<uint8_t>();
-    if (mode >= 1 && mode <= 3) {
-      touchReaderControls = TOUCH_READER_ON;
-      pageTurnGesture = mode == 1 ? TAP_ONLY : mode == 2 ? SWIPE_ONLY : INVERTED_TAP;
-      previousPageGesture = pageTurnGesture;
-      needsResave = true;
-    }
+  // Sleep screen. The book-cover modes need the removed EPUB/XTC/TXT readers: Cover falls
+  // back to the default screen and Cover + Custom to the custom images.
+  uint8_t storedSleepScreen = doc["sleepScreen"] | (uint8_t)DARK;
+  if (storedSleepScreen == COVER) {
+    storedSleepScreen = DARK;
+    needsResave = true;
+  } else if (storedSleepScreen == COVER_CUSTOM) {
+    storedSleepScreen = CUSTOM;
+    needsResave = true;
   }
+  sleepScreen = clamp(storedSleepScreen, SLEEP_SCREEN_MODE_COUNT, (uint8_t)DARK);
 
   if (doc["sleepTimeoutMinutes"].isNull() && !doc["sleepTimeout"].isNull()) {
     const uint8_t legacyValue =
@@ -212,57 +187,9 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
       clamp(doc["frontButtonRight"] | (uint8_t)FRONT_HW_RIGHT, FRONT_BUTTON_HARDWARE_COUNT, FRONT_HW_RIGHT);
   validateFrontButtonMapping(s);
 
-  // Reader font size — an actual point size since 1.5. Files written by 1.4 and
-  // earlier hold the old SMALL/MEDIUM/LARGE/EXTRA_LARGE slot in 0..3; no font is
-  // renderable at those sizes, so the range is unambiguous and folds to the
-  // point sizes those slots used to mean. Drop this once 1.4 upgrades are done.
-  uint8_t storedFontSize = doc["fontSize"] | DEFAULT_FONT_POINT_SIZE;
-  if (storedFontSize <= LEGACY_FONT_SIZE_MAX) {
-    storedFontSize = 12 + storedFontSize * 2;  // 0,1,2,3 -> 12,14,16,18
-    needsResave = true;
-  }
-  fontPointSize = storedFontSize;
-
-  // Font family — uses dynamic getter/setter in SettingsList so the generic loop skips it.
-  const uint8_t storedFontFamily = doc["fontFamily"] | (uint8_t)0;
-  fontFamily = clamp(storedFontFamily, BUILTIN_FONT_COUNT, 0);
-  if (BoardConfig::hasHomeKey() && doc["homeButtonLongPressAction"].isNull() &&
-      !doc["longPressMenuFunction"].isNull()) {
-    static constexpr HomeButtonAction LEGACY[] = {HomeButtonAction::Sync, HomeButtonAction::Ignore,
-                                                  HomeButtonAction::Bookmark, HomeButtonAction::Dictionary,
-                                                  HomeButtonAction::ReaderMenu};
-    if (s.longPressMenuFunction < sizeof(LEGACY) / sizeof(LEGACY[0])) {
-      s.homeButtonLongPressAction = static_cast<uint8_t>(LEGACY[s.longPressMenuFunction]);
-      needsResave = true;
-    }
-  }
-
-  // SD card font family name — not in SettingsList, load manually
-  const char* sfn = doc["sdFontFamilyName"] | "";
-  strncpy(sdFontFamilyName, sfn, sizeof(sdFontFamilyName) - 1);
-  sdFontFamilyName[sizeof(sdFontFamilyName) - 1] = '\0';
-  if (storedFontFamily == LEGACY_OPENDYSLEXIC && sdFontFamilyName[0] == '\0') {
-    fontFamily = NOTOSERIF;
-    strncpy(sdFontFamilyName, "OpenDyslexic", sizeof(sdFontFamilyName) - 1);
-    sdFontFamilyName[sizeof(sdFontFamilyName) - 1] = '\0';
-    needsResave = true;
-  } else if (storedFontFamily >= BUILTIN_FONT_COUNT) {
-    needsResave = true;
-  }
-  // Dictionary folder name — uses dynamic getter/setter in SettingsList, load manually
-  copyToField(dictionaryName, doc["dictionaryName"] | "", sizeof(dictionaryName));
-  // Korean SD .epdfont selections — managed by FontSelectionActivity, not in SettingsList.
-  copyToField(customFontPath, doc["customFontPath"] | "", sizeof(customFontPath));
-  copyToField(systemFontPath, doc["systemFontPath"] | "", sizeof(systemFontPath));
-
   // Language -- stored as code string for stability across enum reorders.
   if (doc["language"].is<const char*>()) {
     language = static_cast<uint8_t>(I18n::languageFromCode(doc["language"].as<const char*>()));
-  }
-
-  // Absent means unconfigured, which is the default.
-  if (doc["keyboardLayouts"].is<uint16_t>()) {
-    keyboardLayouts = doc["keyboardLayouts"].as<uint16_t>();
   }
 
   if (needsResave) {
@@ -273,60 +200,6 @@ bool CrossPointSettings::fromJson(JsonVariantConst doc) {
   LOG_DBG("CPS", "Settings loaded from file");
 
   return true;
-}
-
-CrossPointSettings::StatusBarSpec CrossPointSettings::statusBarSpec() const {
-  StatusBarSpec spec;
-  spec.showChapterPageCount = statusBarChapterPageCount != 0;
-  spec.showBookProgressPercent = statusBarBookProgressPercentage != 0;
-  spec.titleMode = statusBarTitle;
-  spec.showBattery = statusBarBattery != 0;
-  spec.showBatteryPercent = hideBatteryPercentage == HIDE_NEVER;
-  spec.clockMode = statusBarClock;
-  spec.clock12h = clockFormat == 1;
-  spec.progressBarMode = statusBarProgressBar;
-  spec.progressBarHeightPx =
-      statusBarProgressBar != HIDE_PROGRESS ? static_cast<uint8_t>((statusBarProgressBarThickness + 1) * 2) : 0;
-  spec.xtcMode = xtcStatusBarMode;
-  return spec;
-}
-
-ReaderRenderSpec CrossPointSettings::readerRenderSpec(const uint16_t viewportWidth,
-                                                      const uint16_t viewportHeight) const {
-  ReaderRenderSpec spec;
-  spec.fontId = getReaderFontId();
-  spec.lineCompression = getReaderLineCompression();
-  spec.characterSpacing = getCharacterSpacing();
-  spec.wordSpacingPercent = wordSpacing;
-  spec.extraParagraphSpacing = extraParagraphSpacing != 0;
-  spec.paragraphAlignment = paragraphAlignment;
-  spec.viewportWidth = viewportWidth;
-  spec.viewportHeight = viewportHeight;
-  spec.embeddedStyle = embeddedStyle != 0;
-  spec.imageRendering = imageRendering;
-  spec.focusReadingEnabled = focusReadingEnabled != 0;
-  spec.paragraphIndent = paragraphIndent != 0;
-  spec.characterWrap = characterWrap != 0;
-  // Hyphenation only applies in word-wrap mode: character wrap can break anywhere already.
-  spec.hyphenationEnabled = hyphenationEnabled != 0 && characterWrap == 0;
-  return spec;
-}
-
-float CrossPointSettings::getReaderLineCompression() const {
-  // Every reader font gets the same Korean multiplier, so spacing matches 1.2.0-ko whichever font
-  // is selected. Upstream's per-family values are not used here. EXTRA_WIDE (upstream 1.6) extends
-  // the Korean 0.2 step.
-  switch (lineSpacing) {
-    case TIGHT:
-      return 1.00f;
-    case NORMAL:
-    default:
-      return 1.20f;
-    case WIDE:
-      return 1.40f;
-    case EXTRA_WIDE:
-      return 1.60f;
-  }
 }
 
 unsigned long CrossPointSettings::getSleepTimeoutMs() const {
@@ -354,59 +227,4 @@ int CrossPointSettings::getRefreshFrequency() const {
       // counts down from here and never reaches the threshold in practice.
       return std::numeric_limits<int>::max();
   }
-}
-
-void CrossPointSettings::clearSdFontFamily() {
-  sdFontFamilyName[0] = '\0';
-  fontPointSize =
-      snapToNearestPointSize(BUILTIN_READER_POINT_SIZES, std::size(BUILTIN_READER_POINT_SIZES), fontPointSize);
-  saveToFile();
-}
-
-int CrossPointSettings::getReaderFontId() const {
-  // A custom SD font renders under the id it was registered with (CUSTOM_FONT_ID), which is also
-  // the cache key, so switching fonts invalidates section caches. fontFamily/fontPointSize select
-  // nothing here: upstream's built-in families are not loaded in this build.
-  return hasCustomFont() ? CUSTOM_FONT_ID : KOPUB_14_FONT_ID;
-}
-
-int CrossPointSettings::getUiFontId() const {
-  // Fixed to Pretendard 10pt
-  return UI_FONT_ID;
-}
-
-const char* CrossPointSettings::getCustomFontName() const {
-  if (!hasCustomFont()) {
-    return "KoPub 바탕 (기본)";
-  }
-  // Extract filename from path (e.g., "/.fonts/MyFont.epdfont" -> "MyFont")
-  const char* lastSlash = strrchr(customFontPath, '/');
-  const char* filename = lastSlash ? lastSlash + 1 : customFontPath;
-  // Remove extension for display
-  static char nameBuffer[32];
-  strncpy(nameBuffer, filename, sizeof(nameBuffer) - 1);
-  nameBuffer[sizeof(nameBuffer) - 1] = '\0';
-  char* dot = strrchr(nameBuffer, '.');
-  if (dot) {
-    *dot = '\0';
-  }
-  return nameBuffer;
-}
-
-const char* CrossPointSettings::getSystemFontName() const {
-  if (!hasSystemFont()) {
-    return "Pretendard (기본)";
-  }
-  // Extract filename from path (e.g., "/.fonts/NotoCJK.epdfont" -> "NotoCJK")
-  const char* lastSlash = strrchr(systemFontPath, '/');
-  const char* filename = lastSlash ? lastSlash + 1 : systemFontPath;
-  // Remove extension for display
-  static char nameBuffer[32];
-  strncpy(nameBuffer, filename, sizeof(nameBuffer) - 1);
-  nameBuffer[sizeof(nameBuffer) - 1] = '\0';
-  char* dot = strrchr(nameBuffer, '.');
-  if (dot) {
-    *dot = '\0';
-  }
-  return nameBuffer;
 }

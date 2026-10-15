@@ -42,12 +42,4 @@ class HalClock {
   // 24h mode produces "HH:MM" (needs >=6 bytes); 12h mode produces "H:MM AM"/"HH:MM PM" (needs >=9 bytes).
   // Returns false if RTC is not available.
   bool formatTime(char* buf, size_t bufSize, bool use12Hour = false) const;
-
-  // Sync the RTC from an NTP server. Requires WiFi to be connected.
-  // Blocks for up to ~5s while waiting for SNTP response.
-  // Returns true if the RTC was successfully updated.
-  //
-  // Debouncing (skip if already synced once) is enforced by the caller, not here,
-  // so the HAL stays free of any app-layer settings dependency.
-  bool syncFromNTP();
 };

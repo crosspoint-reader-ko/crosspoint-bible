@@ -3,7 +3,6 @@
 #include <BoardConfig.h>
 #include <Logging.h>
 #include <PowerManager.h>
-#include <WiFi.h>
 #include <esp_sleep.h>
 #include <soc/soc_caps.h>
 
@@ -59,12 +58,6 @@ void HalPowerManager::begin() {
 void HalPowerManager::setPowerSaving(bool enabled) {
   if (normalFreq <= 0) {
     return;  // invalid state
-  }
-
-  auto wifiMode = WiFi.getMode();
-  if (wifiMode != WIFI_MODE_NULL) {
-    // Wifi is active, force disabling power saving
-    enabled = false;
   }
 
   // Note: We don't use mutex here to avoid too much overhead,

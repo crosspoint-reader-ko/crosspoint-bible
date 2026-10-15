@@ -8,7 +8,6 @@
 
 #include <memory>
 
-#include "ClockSyncActivity.h"
 #include "CrossPointSettings.h"
 #include "MappedInputManager.h"
 #include "TimezonePickerActivity.h"
@@ -27,8 +26,7 @@ enum MenuItem {
 };
 
 const StrId menuNames[ClockSettingsActivity::ITEM_COUNT] = {
-    StrId::STR_TIMEZONE,        StrId::STR_CLOCK_DST,      StrId::STR_CLOCK_FORMAT,
-    StrId::STR_CLOCK_IN_HEADER, StrId::STR_CLOCK_SYNC_NOW,
+    StrId::STR_TIMEZONE, StrId::STR_CLOCK_DST, StrId::STR_CLOCK_FORMAT, StrId::STR_CLOCK_IN_HEADER, StrId::STR_CLOCK,
 };
 
 const StrId dstNames[CrossPointSettings::CLOCK_DST_MODE_COUNT] = {StrId::STR_CLOCK_DST_AUTO, StrId::STR_STATE_ON,
@@ -70,11 +68,7 @@ void ClockSettingsActivity::activateIndex(const int index) {
       SETTINGS.clockShowInHeader = (SETTINGS.clockShowInHeader + 1) % 2;
       break;
     case ITEM_SYNC:
-      if (auto activity = makeUniqueNoThrow<ClockSyncActivity>(renderer, mappedInput)) {
-        startActivityForResult(std::move(activity), nullptr);
-      } else {
-        LOG_ERR("CLKSET", "OOM: ClockSyncActivity");
-      }
+      // Read-only: shows the RTC time. This build has no network, so there is no NTP sync.
       return;
     default:
       return;
@@ -96,8 +90,8 @@ void ClockSettingsActivity::buildScreen(UiScreen& screen) {
   rowItems_[ITEM_DST].value = I18N.get(dstNames[dst]);
   rowItems_[ITEM_FORMAT].value = SETTINGS.clockFormat == 1 ? tr(STR_CLOCK_FORMAT_12H) : tr(STR_CLOCK_FORMAT_24H);
   rowItems_[ITEM_SHOW_ON_HOME].value = SETTINGS.clockShowInHeader ? tr(STR_SHOW) : tr(STR_HIDE);
-  // The sync row's value is the current time itself: it confirms the sync,
-  // previews format/zone changes, and reads "Not Set" until the first sync.
+  // The last row shows the current RTC time: it previews format/zone changes and
+  // reads "Not Set" while the RTC has never been set.
   rowItems_[ITEM_SYNC].value =
       SETTINGS.clockHasBeenSynced && halClock.formatTime(syncTime_, sizeof(syncTime_), SETTINGS.clockFormat == 1)
           ? syncTime_

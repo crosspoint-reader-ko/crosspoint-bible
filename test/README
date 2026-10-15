@@ -8,8 +8,8 @@ Build and run:
 
 Run a single suite directly:
 
-  cmake --build build/test --target StreamingJsonParserTest
-  build/test/streaming_json_parser/StreamingJsonParserTest --gtest_filter='*'
+  cmake --build build/test --target BiblePackTest
+  build/test/bible_pack/BiblePackTest --gtest_filter='*'
 
 Google Test is fetched via CMake FetchContent on first configure; the pinned
 version lives in test/CMakeLists.txt.

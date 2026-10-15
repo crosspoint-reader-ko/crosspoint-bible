@@ -1,10 +1,7 @@
 #include "ActivityManager.h"
 
-#include "bible/BibleReaderActivity.h"
-
 #include <BoardConfig.h>
 #include <FontCacheManager.h>
-#include <FsHelpers.h>
 #include <HalDisplay.h>
 #include <HalPowerManager.h>
 #include <Memory.h>
@@ -12,21 +9,13 @@
 #include <algorithm>
 
 #include "CrossPointSettings.h"
-#include "OpdsServerStore.h"
+#include "bible/BibleReaderActivity.h"
 #include "boot_sleep/BootActivity.h"
 #include "boot_sleep/SleepActivity.h"
-#include "browser/OpdsBookBrowserActivity.h"
 #include "components/HeaderBackTapTarget.h"
 #include "home/CrashActivity.h"
-#include "home/FileBrowserActivity.h"
-#include "home/HomeActivity.h"
-#include "library/LibraryListActivity.h"
-#include "network/CrossPointWebServerActivity.h"
-#include "network/UsbDriveActivity.h"
-#include "reader/ReaderActivity.h"
-#include "settings/OpdsServerListActivity.h"
 #include "settings/SettingsActivity.h"
-#include "util/BmpViewerActivity.h"
+#include "settings/UsbDriveActivity.h"
 #include "util/FrontlightPanelActivity.h"
 #include "util/FullScreenMessageActivity.h"
 
@@ -107,9 +96,7 @@ void ActivityManager::loop() {
     // panels' etched glass makes unreliable). The reader keeps its clean page
     // (no status bar there to tap). Touch boards only, like the swipe itself.
     bool statusBarTap = false;
-    if (mappedInput.hasTouch() &&
-        (currentActivity->name == "Home" || currentActivity->name == "FileBrowser" ||
-         currentActivity->name == "Settings" || currentActivity->name == "NetworkModeSelection")) {
+    if (mappedInput.hasTouch() && currentActivity->name == "Settings") {
       int tx = 0;
       int ty = 0;
       // The header back button shares this band; its taps stay Back.
@@ -237,10 +224,6 @@ void ActivityManager::replaceActivity(std::unique_ptr<Activity>&& newActivity) {
   }
 }
 
-void ActivityManager::goToFileTransfer() {
-  replaceActivity(std::make_unique<CrossPointWebServerActivity>(renderer, mappedInput));
-}
-
 void ActivityManager::goToUsbDrive() {
 #if FREEINK_CAP_USB_MSC
   auto activity = makeUniqueNoThrow<UsbDriveActivity>(renderer, mappedInput);
@@ -256,51 +239,6 @@ void ActivityManager::goToUsbDrive() {
 
 void ActivityManager::goToSettings() { replaceActivity(std::make_unique<SettingsActivity>(renderer, mappedInput)); }
 
-void ActivityManager::goToFileBrowser(std::string path) {
-  replaceActivity(std::make_unique<FileBrowserActivity>(renderer, mappedInput, std::move(path)));
-}
-
-void ActivityManager::goToLibrary() {
-  auto activity = makeUniqueNoThrow<LibraryListActivity>(renderer, mappedInput);
-  if (!activity) {
-    LOG_ERR("ACT", "OOM: library activity");
-    return;
-  }
-  replaceActivity(std::move(activity));
-}
-
-void ActivityManager::goToBrowser() {
-  const auto& servers = OPDS_STORE.getServers();
-  // Skip the server picker when there's only one server configured
-  if (servers.size() == 1) {
-    replaceActivity(std::make_unique<OpdsBookBrowserActivity>(renderer, mappedInput, servers[0]));
-  } else {
-    replaceActivity(std::make_unique<OpdsServerListActivity>(renderer, mappedInput, true));
-  }
-}
-
-void ActivityManager::goToReader(std::string path, const bool allowFastInitialRefresh) {
-  if (path.empty()) {
-    goToFileBrowser("/");
-    return;
-  }
-
-  if (FsHelpers::hasBmpExtension(path) || FsHelpers::hasPngExtension(path)) {
-    auto activity = makeUniqueNoThrow<BmpViewerActivity>(renderer, mappedInput, std::move(path));
-    if (!activity) {
-      LOG_ERR("ACT", "OOM: bitmap viewer activity");
-      return;
-    }
-    replaceActivity(std::move(activity));
-    return;
-  }
-
-  auto activity = ReaderActivity::create(renderer, mappedInput, std::move(path), allowFastInitialRefresh);
-  if (activity) {
-    replaceActivity(std::move(activity));
-  }
-}
-
 void ActivityManager::goToSleep(bool fromTimeout) {
   replaceActivity(std::make_unique<SleepActivity>(renderer, mappedInput, fromTimeout));
   loop();  // Important: sleep screen must be rendered immediately, the caller will go to sleep right after this returns
@@ -313,25 +251,12 @@ void ActivityManager::goToFullScreenMessage(std::string message, EpdFontFamily::
 }
 
 void ActivityManager::goHome(HomeMenuItem initialMenuItem, bool cleanInitialRefresh) {
-  if (initialMenuItem == HomeMenuItem::NONE && currentActivity) {
-    const auto& activityName = currentActivity->name;
-    if (activityName == "FileBrowser") {
-      initialMenuItem = HomeMenuItem::FILE_BROWSER;
-    } else if (activityName == "Library") {
-      initialMenuItem = HomeMenuItem::LIBRARY;
-    } else if (activityName == "OpdsBookBrowser") {
-      initialMenuItem = HomeMenuItem::OPDS_BROWSER;
-    } else if (activityName == "CrossPointWebServer") {
-      initialMenuItem = HomeMenuItem::FILE_TRANSFER;
-    } else if (activityName == "Settings") {
-      initialMenuItem = HomeMenuItem::SETTINGS_MENU;
-    }
-  }
   // CrossPoint Bible: "home" is the Bible reader at the saved position.
   (void)initialMenuItem;
   (void)cleanInitialRefresh;
   replaceActivity(std::make_unique<BibleReaderActivity>(renderer, mappedInput));
 }
+
 void ActivityManager::goToCrashReport() { replaceActivity(std::make_unique<CrashActivity>(renderer, mappedInput)); }
 
 void ActivityManager::pushActivity(std::unique_ptr<Activity>&& activity) {
@@ -370,13 +295,6 @@ bool ActivityManager::isReaderActivity() const {
 bool ActivityManager::handleForcedRefresh() { return currentActivity && currentActivity->handleForcedRefresh(); }
 
 bool ActivityManager::skipLoopDelay() const { return currentActivity && currentActivity->skipLoopDelay(); }
-
-ScreenshotInfo ActivityManager::getScreenshotInfo() const {
-  if (currentActivity) {
-    return currentActivity->getScreenshotInfo();
-  }
-  return {};
-}
 
 void ActivityManager::requestUpdate(bool immediate) {
   if (immediate) {

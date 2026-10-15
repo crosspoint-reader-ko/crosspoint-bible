@@ -11,10 +11,7 @@
 #include <memory>
 
 #include "MappedInputManager.h"
-#include "RecentBooksStore.h"
-#include "components/CoverGridHomeUi.h"
 #include "components/themes/BaseTheme.h"
-#include "components/themes/lyra/Lyra3CoversTheme.h"
 #include "components/themes/lyra/LyraTheme.h"
 #include "components/themes/roundedraff/RoundedRaffTheme.h"
 
@@ -31,24 +28,18 @@ void UITheme::reload() {
   setTheme(themeType);
 }
 
-bool UITheme::supportsCoverGrid() { return HalMemory::getPsramHeap().totalBytes > 0; }
-
-bool UITheme::hasCoverGridHome() { return SETTINGS.uiTheme == CrossPointSettings::COVER_GRID && supportsCoverGrid(); }
-
-void UITheme::drawCoverGridHome(CoverGridHomeUi& home) { home.renderUi(); }
-
 void UITheme::setTheme(CrossPointSettings::UI_THEME type) {
-  if (type == CrossPointSettings::COVER_GRID && !supportsCoverGrid()) type = CrossPointSettings::LYRA;
-
   switch (type) {
     case CrossPointSettings::UI_THEME::CLASSIC:
       LOG_DBG("UI", "Using Classic theme");
       currentTheme = std::make_unique<BaseTheme>();
       currentMetrics = &BaseMetrics::values;
       break;
+    // Lyra Extended and Cover Grid only differed on the removed home screen.
+    case CrossPointSettings::UI_THEME::LYRA_3_COVERS:
     case CrossPointSettings::UI_THEME::COVER_GRID:
-    case CrossPointSettings::UI_THEME::LYRA: {
-      // The cover home owns its screen-lifetime UI state; other screens retain Lyra styling.
+    case CrossPointSettings::UI_THEME::LYRA:
+    default: {
       auto theme = makeUniqueNoThrow<LyraTheme>();
       if (!theme) {
         LOG_ERR("UI", "OOM: Lyra theme");
@@ -63,11 +54,6 @@ void UITheme::setTheme(CrossPointSettings::UI_THEME type) {
       LOG_DBG("UI", "Using RoundedRaff theme");
       currentTheme = std::make_unique<RoundedRaffTheme>();
       currentMetrics = &RoundedRaffMetrics::values;
-      break;
-    case CrossPointSettings::UI_THEME::LYRA_3_COVERS:
-      LOG_DBG("UI", "Using Lyra 3 Covers theme");
-      currentTheme = std::make_unique<Lyra3CoversTheme>();
-      currentMetrics = &Lyra3CoversMetrics::values;
       break;
   }
   metricsValid = false;
@@ -122,14 +108,6 @@ Rect UITheme::getScreenSafeArea(const GfxRenderer& renderer, bool hasFrontButton
   return safeArea;
 }
 
-std::string UITheme::getCoverThumbPath(std::string coverBmpPath, int coverHeight) {
-  size_t pos = coverBmpPath.find("[HEIGHT]", 0);
-  if (pos != std::string::npos) {
-    coverBmpPath.replace(pos, 8, std::to_string(coverHeight));
-  }
-  return coverBmpPath;
-}
-
 UIIcon UITheme::getFileIcon(const std::string& filename) {
   if (filename.back() == '/') {
     return Folder;
@@ -144,22 +122,6 @@ UIIcon UITheme::getFileIcon(const std::string& filename) {
     return Image;
   }
   return File;
-}
-
-int UITheme::getStatusBarHeight() {
-  const ThemeMetrics metrics = UITheme::getInstance().getMetrics();
-  const auto sb = SETTINGS.statusBarSpec();
-
-  // Layout reservation is hardware-agnostic: pass clockAvailable=true so the
-  // reserved height does not depend on whether an RTC is present.
-  return (sb.textLaneVisible(true) ? (metrics.statusBarVerticalMargin) : 0) +
-         (sb.showsProgressBar() ? (sb.progressBarHeightPx + metrics.progressBarMarginTop) : 0);
-}
-
-int UITheme::getProgressBarHeight() {
-  const ThemeMetrics metrics = UITheme::getInstance().getMetrics();
-  const auto sb = SETTINGS.statusBarSpec();
-  return sb.showsProgressBar() ? (sb.progressBarHeightPx + metrics.progressBarMarginTop) : 0;
 }
 
 // Centered text implementation that takes the safe area into account

@@ -4,10 +4,8 @@
 #include <GfxRenderer.h>
 #include <HalClock.h>
 #include <HalDisplay.h>
-#include <LibraryBuilder.h>
 #include <Logging.h>
 #include <Memory.h>
-#include <WiFi.h>
 
 #include <algorithm>
 #include <cstdio>
@@ -15,23 +13,14 @@
 
 #include "AboutActivity.h"
 #include "ButtonRemapActivity.h"
-#include "ClearCacheActivity.h"
 #include "ClockSettingsActivity.h"
 #include "CrossPointSettings.h"
-#include "FontSelectionActivity.h"
 #include "HomeButtonSettingsActivity.h"
-#include "KOReaderSettingsActivity.h"
-#include "KeyboardLayoutsActivity.h"
 #include "LanguageSelectActivity.h"
 #include "MappedInputManager.h"
-#include "OpdsServerListActivity.h"
-#include "OtaUpdateActivity.h"
 #include "SdFirmwareUpdateActivity.h"
 #include "SettingsList.h"
-#include "SilentRestart.h"
 #include "SleepImageSelectionActivity.h"
-#include "StatusBarSettingsActivity.h"
-#include "activities/network/WifiSelectionActivity.h"
 #include "activities/util/IntervalSelectionActivity.h"
 #include "components/UITheme.h"
 #include "components/UIThemeTokens.h"
@@ -49,12 +38,7 @@ void SettingsActivity::rebuildSettingsLists() {
   controlsSettings.clear();
   systemSettings.clear();
 
-  // Rescan /dictionaries on every rebuild: cheap (one directory listing) and
-  // picks up dictionaries copied to the SD card since the last visit.
-  std::vector<DictionaryEntry> dictionaries;
-  DictionaryRegistry::discover(dictionaries);
-
-  for (const auto& setting : getSettingsList(&dictionaries)) {
+  for (const auto& setting : getSettingsList()) {
     if (setting.category == StrId::STR_NONE_OPT || home_button::isSetting(setting.valuePtr)) continue;
     if (setting.category == StrId::STR_CAT_DISPLAY) {
       // The sunlight fading fix is a grayscale-waveform compensation that does
@@ -65,16 +49,8 @@ void SettingsActivity::rebuildSettingsLists() {
       }
       displaySettings.push_back(setting);
     } else if (setting.category == StrId::STR_CAT_READER) {
-      // Deliberately no inTextSettings filter: this build drops upstream's TextSettingsActivity,
-      // so filtering would leave those ten entries unreachable from Settings. The
-      // withTextSettings() markers stay in SettingsList.h to keep restoring it a one-line change.
       readerSettings.push_back(setting);
     } else if (setting.category == StrId::STR_CAT_CONTROLS) {
-      if (BoardConfig::hasHomeKey() && setting.valuePtr == &CrossPointSettings::longPressMenuFunction) continue;
-      if (setting.valuePtr == &CrossPointSettings::pwrBtnFootnoteBack &&
-          SETTINGS.shortPwrBtn != CrossPointSettings::SHORT_PWRBTN::FOOTNOTES) {
-        continue;
-      }
       controlsSettings.push_back(setting);
     } else if (setting.category == StrId::STR_CAT_SYSTEM) {
       systemSettings.push_back(setting);
@@ -85,11 +61,6 @@ void SettingsActivity::rebuildSettingsLists() {
   // Sleep image selection sits under Display because it controls what shows
   // when the device sleeps in Custom or Cover+Custom mode.
   displaySettings.push_back(SettingInfo::Action(StrId::STR_SELECT_SLEEP_SCREENS, SettingAction::SelectSleepScreens));
-  // Korean: UI "system font" picker (loads an SD font as the primary UI font, Pretendard fallback).
-  displaySettings.push_back(SettingInfo::Action(StrId::STR_SYSTEM_FONT, SettingAction::SystemFontSelection));
-  // Korean: EPUB reader font picker (loads an SD font under CUSTOM_FONT_ID, else KoPub Batang).
-  readerSettings.insert(readerSettings.begin(),
-                        SettingInfo::Action(StrId::STR_FONT_FAMILY, SettingAction::FontSelection));
   if (!BoardConfig::hasTouch()) {
     controlsSettings.insert(controlsSettings.begin(),
                             SettingInfo::Action(StrId::STR_REMAP_FRONT_BUTTONS, SettingAction::RemapFrontButtons));
@@ -98,23 +69,19 @@ void SettingsActivity::rebuildSettingsLists() {
     controlsSettings.insert(controlsSettings.begin(),
                             SettingInfo::Action(StrId::STR_HOME_BUTTON, SettingAction::HomeButton));
   }
-  systemSettings.push_back(SettingInfo::Action(StrId::STR_WIFI_NETWORKS, SettingAction::Network));
   // Clock configuration only exists where the RTC probe found hardware; on
   // clockless boards there is nothing to set.
   if (halClock.isAvailable()) {
     systemSettings.push_back(SettingInfo::Action(StrId::STR_CLOCK, SettingAction::ClockSettings));
   }
-  systemSettings.push_back(SettingInfo::Action(StrId::STR_KOREADER_SYNC, SettingAction::KOReaderSync));
-  systemSettings.push_back(SettingInfo::Action(StrId::STR_OPDS_SERVERS, SettingAction::OPDSBrowser));
-  systemSettings.push_back(SettingInfo::Action(StrId::STR_CLEAR_READING_CACHE, SettingAction::ClearCache));
-  // OTA fetches this board's own release asset (see OtaUpdater); boards whose
-  // asset isn't published yet just report no update available.
-  systemSettings.push_back(SettingInfo::Action(StrId::STR_CHECK_UPDATES, SettingAction::CheckForUpdates));
+  // SD card firmware update is the only update path (no network in this build).
   systemSettings.push_back(SettingInfo::Action(StrId::STR_SD_FIRMWARE_UPDATE, SettingAction::SdFirmwareUpdate));
-  systemSettings.push_back(SettingInfo::Action(StrId::STR_KEYBOARD_LAYOUTS, SettingAction::KeyboardLayouts));
+#if FREEINK_CAP_USB_MSC
+  // USB Drive exposes the SD card to a computer (e.g. to copy the Bible pack).
+  systemSettings.push_back(SettingInfo::Action(StrId::STR_USB_DRIVE, SettingAction::UsbDrive));
+#endif
   systemSettings.push_back(SettingInfo::Action(StrId::STR_ABOUT, SettingAction::About));
   systemSettings.push_back(SettingInfo::Action(StrId::STR_LANGUAGE, SettingAction::Language));
-  readerSettings.push_back(SettingInfo::Action(StrId::STR_CUSTOMISE_STATUS_BAR, SettingAction::CustomiseStatusBar));
 
   // Update currentSettings pointer and count for the active category
   switch (selectedCategoryIndex) {
@@ -278,7 +245,7 @@ void SettingsActivity::toggleCurrentSetting() {
   }
 
   const auto& setting = (*currentSettings)[selectedSetting];
-  const bool sleepScreenChanged = setting.valuePtr == &CrossPointSettings::sleepScreen;
+  const bool sleepScreenChanged = setting.nameId == StrId::STR_SLEEP_SCREEN;
   const bool quickResumeTimeoutChanged = setting.valuePtr == &CrossPointSettings::quickResumeSleepScreen;
 
   if (setting.nameId == StrId::STR_TIME_TO_SLEEP) {
@@ -355,9 +322,6 @@ void SettingsActivity::toggleCurrentSetting() {
       case SettingAction::RemapFrontButtons:
         startActivityForResult(std::make_unique<ButtonRemapActivity>(renderer, mappedInput), resultHandler);
         break;
-      case SettingAction::CustomiseStatusBar:
-        startActivityForResult(std::make_unique<StatusBarSettingsActivity>(renderer, mappedInput), resultHandler);
-        break;
       case SettingAction::ClockSettings:
         if (auto activity = makeUniqueNoThrow<ClockSettingsActivity>(renderer, mappedInput)) {
           startActivityForResult(std::move(activity), resultHandler);
@@ -365,64 +329,15 @@ void SettingsActivity::toggleCurrentSetting() {
           LOG_ERR("SETTINGS", "OOM: ClockSettingsActivity");
         }
         break;
-      case SettingAction::KOReaderSync:
-        startActivityForResult(std::make_unique<KOReaderSettingsActivity>(renderer, mappedInput), resultHandler);
-        break;
-      case SettingAction::OPDSBrowser:
-        startActivityForResult(std::make_unique<OpdsServerListActivity>(renderer, mappedInput), resultHandler);
-        break;
-      case SettingAction::Network: {
-        auto activity = makeUniqueNoThrow<WifiSelectionActivity>(renderer, mappedInput, false);
-        if (!activity) {
-          LOG_ERR("SETTINGS", "OOM: WifiSelectionActivity");
-          return;
-        }
-        startActivityForResult(std::move(activity), [](const ActivityResult&) {
-          SETTINGS.saveToFile();
-          // Every other WiFi consumer hands the radio to a session it owns;
-          // these rows only save credentials, so nothing here would ever
-          // release the driver's heap. The scan alone brings it up, so tear
-          // down whether or not the user joined a network.
-          if (WiFi.getMode() == WIFI_MODE_NULL) return;
-          WiFi.disconnect(false);
-          delay(30);
-          // Unlike the onExit() teardowns, this runs from the loop task with
-          // no lock held; the restart popup paints straight to the panel.
-          RenderLock lock;
-          silentRestartToSettings();
-        });
-        break;
-      }
-      case SettingAction::ClearCache:
-        startActivityForResult(std::make_unique<ClearCacheActivity>(renderer, mappedInput), resultHandler);
-        break;
-      case SettingAction::CheckForUpdates:
-        startActivityForResult(std::make_unique<OtaUpdateActivity>(renderer, mappedInput), resultHandler);
-        break;
       case SettingAction::SdFirmwareUpdate:
         startActivityForResult(std::make_unique<SdFirmwareUpdateActivity>(renderer, mappedInput), resultHandler);
         break;
+      case SettingAction::UsbDrive:
+        // USB Drive takes over the SD card and restarts on exit, so it replaces the stack.
+        activityManager.goToUsbDrive();
+        return;
       case SettingAction::SelectSleepScreens:
         startActivityForResult(std::make_unique<SleepImageSelectionActivity>(renderer, mappedInput), resultHandler);
-        break;
-      case SettingAction::FontSelection:
-        startActivityForResult(std::make_unique<FontSelectionActivity>(renderer, mappedInput),
-                               [this](const ActivityResult&) {
-                                 SETTINGS.saveToFile();
-                                 rebuildSettingsLists();
-                               });
-        break;
-      case SettingAction::SystemFontSelection:
-        startActivityForResult(
-            std::make_unique<FontSelectionActivity>(renderer, mappedInput, FontSelectionActivity::Target::System),
-            [this](const ActivityResult&) {
-              SETTINGS.saveToFile();
-              rebuildSettingsLists();
-            });
-        break;
-      case SettingAction::TextSettings:
-        // Upstream's TextSettingsActivity is not part of this build; reader text options live
-        // in Settings > Reader (and Reader Options in the reader menu). Never added to a list.
         break;
       case SettingAction::Language:
         // Row labels are translated once in rebuildRowItems() and don't
@@ -433,13 +348,6 @@ void SettingsActivity::toggleCurrentSetting() {
                                  SETTINGS.saveToFile();
                                  rebuildSettingsLists();
                                });
-        break;
-      case SettingAction::KeyboardLayouts:
-        if (auto activity = makeUniqueNoThrow<KeyboardLayoutsActivity>(renderer, mappedInput)) {
-          startActivityForResult(std::move(activity), nullptr);
-        } else {
-          LOG_ERR("SETTINGS", "OOM: KeyboardLayoutsActivity");
-        }
         break;
       case SettingAction::About:
         if (auto activity = makeUniqueNoThrow<AboutActivity>(renderer, mappedInput)) {
@@ -504,9 +412,6 @@ void SettingsActivity::openSleepTimeoutPicker() {
 
 std::string SettingsActivity::settingValueText(const SettingInfo& setting) {
   if (setting.action == SettingAction::HomeButton) return tr(STR_CONFIGURE);
-  // Korean: show the currently applied SD font next to the Reader/System font actions.
-  if (setting.action == SettingAction::FontSelection) return SETTINGS.getCustomFontName();
-  if (setting.action == SettingAction::SystemFontSelection) return SETTINGS.getSystemFontName();
   if (setting.type == SettingType::TOGGLE && setting.valuePtr != nullptr) {
     return SETTINGS.*(setting.valuePtr) ? tr(STR_STATE_ON) : tr(STR_STATE_OFF);
   }
